@@ -15,7 +15,7 @@ print(f'PyTorch: {torch.__version__}')
 print(f'CUDA: {torch.version.cuda}')
 print(f'GPU: {torch.cuda.get_device_name(0)}')
 print(f'BF16: {torch.cuda.is_bf16_supported()}')
-print(f'Memory: {torch.cuda.get_device_properties(0).total_mem/1e9:.1f} GB')
+print(f'Memory: {torch.cuda.get_device_properties(0).total_memoryory/1e9:.1f} GB')
 "
 
 # 2. Install dependencies
