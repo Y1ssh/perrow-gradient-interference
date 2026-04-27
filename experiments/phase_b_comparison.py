@@ -82,7 +82,7 @@ import tiktoken
 from datasets import load_dataset
 
 
-def load_fineweb_tokens(max_tokens=50_000_000):
+def load_fineweb_tokens(max_tokens=500_000_000):
     """Download FineWeb-Edu, tokenize with GPT-2 tokenizer, cache to disk."""
     cache_path = f'fineweb_train_{max_tokens // 1_000_000}M.pt'
     if os.path.exists(cache_path):
@@ -111,10 +111,10 @@ def load_fineweb_tokens(max_tokens=50_000_000):
 
 
 print("\n  Loading data...")
-tokens = load_fineweb_tokens(max_tokens=50_000_000)
+tokens = load_fineweb_tokens(max_tokens=500_000_000)
 
-train_tokens = tokens[:48_000_000]
-val_tokens = tokens[48_000_000:]
+train_tokens = tokens[:480_000_000]
+val_tokens = tokens[480_000_000:]
 
 SEQ_LEN = args.seq_len
 train_data = train_tokens[: len(train_tokens) // SEQ_LEN * SEQ_LEN].view(-1, SEQ_LEN).to(DEVICE)
