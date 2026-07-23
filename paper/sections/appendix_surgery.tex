@@ -1,0 +1,45 @@
+\section{Gradient-surgery baselines (single-seed; reported for completeness)}
+\label{app:surgery}
+
+We ran conflict-targeted gradient-surgery methods on the shared-MTP variant to
+test directly whether removing directional conflict recovers the baseline.
+\textbf{We do not rest any claim in the main text on these runs}, for three
+reasons stated up front: (i) each is a \textbf{single seed} (seed 42); (ii) the
+PCGrad baseline operates on \textbf{all parameters}, whereas per-row Gram--Schmidt
+and Scatter operate on the \textbf{output head only}, so they are not strictly
+comparable; and (iii) surgery uses \textbf{two backward passes} under bf16 (versus
+the fused single pass of the main runs), introducing a ${\sim}0.02$--$0.04$ nat
+numerical drift comparable to the smaller surgery effects. With those caveats, the
+pattern is uniform: no surgery method recovers the CE-only baseline
+($\text{A} = 3.985$), and none improves meaningfully on the matched shared-MTP
+seed ($\text{B@42} = 4.390$).
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llrrr}
+\toprule
+Method & Acts on & Final val loss & $\Delta$ vs B@42 & $\Delta$ vs A \\
+\midrule
+CE only (A, ref)            & ---        & 3.985 & ---     & 0.000 \\
+shared MTP (B@42)           & ---        & 4.390 & 0.000   & $+0.405$ \\
+Per-row Gram--Schmidt       & head only  & 4.418 & $+0.027$ & $+0.432$ \\
+Scatter                     & head only  & 4.458 & $+0.067$ & $+0.472$ \\
+PCGrad                      & all params & 4.544 & $+0.154$ & $+0.559$ \\
+Pure-Muon (all 2D in Muon)  & all params & 4.556 & $+0.166$ & $+0.571$ \\
+\bottomrule
+\end{tabular}
+\caption{Gradient-surgery baselines on shared MTP (seed 42). Every method leaves
+the loss at or above the shared-MTP baseline; the per-row Gram--Schmidt effect
+($+0.027$) sits inside the two-pass drift envelope, so we treat it as ``no
+recovery,'' not as a measured improvement.}
+\label{tab:surgery}
+\end{table}
+
+This is what a support/capacity account predicts: with per-row directions already
+aligned, conflict surgery has almost nothing to project away. A matched-seed,
+single-pass replication at $n{=}3$ (identified in Section~\ref{sec:discussion})
+would remove the drift caveat and is the right way to upgrade this from a
+consistent-with observation to evidence. The AdamW negatives from the same phase
+(A $=3.743/3.754$, B $=4.149/4.153$, $\text{G}_\text{nce}=3.778/3.781$ across seeds
+42/123) reproduce the ordering under a second optimizer and are included in
+\texttt{results/phase\_c/}.

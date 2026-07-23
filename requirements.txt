@@ -1,0 +1,25 @@
+# Per-row gradient interference — pinned dependencies
+# Python 3.10+ (tested on 3.10/3.11). Install torch matching your CUDA first:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# then: pip install -r requirements.txt
+
+# --- core ---
+torch>=2.4,<2.10          # bf16 autocast + scaled_dot_product_attention (is_causal)
+numpy>=1.24,<2.2
+scipy>=1.11               # stats.py: Welch's t-test, Cohen's d
+
+# --- data / tokenizer ---
+tiktoken>=0.7             # GPT-2 BPE
+datasets>=2.19            # FineWeb streaming
+
+# --- optimizer (PIN THIS) ---
+# Muon is installed from git and is UNVERSIONED on PyPI. Pin to the exact commit
+# you trained with so results reproduce. Replace <COMMIT_SHA> with the SHA you
+# used (find it: pip show muon, or the commit at train time), e.g.:
+#   git+https://github.com/KellerJordan/Muon@<COMMIT_SHA>#egg=muon
+#
+# RESOLVED: the training instance was set up 2026-05-18 (results/.instance_log),
+# so training used Muon HEAD as of that date. The last upstream commit at/before
+# then is 056a3c5869cf (2026-04-15). We pin to it; verify against your box with
+# `pip show muon` before final submission.
+git+https://github.com/KellerJordan/Muon@056a3c5869cf#egg=muon

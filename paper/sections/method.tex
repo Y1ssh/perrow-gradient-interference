@@ -1,0 +1,87 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{Setup}
+We train GPT-2 (124M; 12 layers, $d{=}768$, vocab $50{,}257$ padded to $50{,}304$)
+and a 350M variant (24 layers, $d{=}1024$) on FineWeb, tokenized with the GPT-2
+BPE. The output projection (\texttt{lm\_head}) is \emph{tied} to the input
+embedding by default; Section~\ref{sec:general} reports an untied control. The
+primary objective is next-token cross-entropy (CE). The auxiliary multi-token
+objective (MTP) supervises the \emph{same tied head} to also predict tokens at
+offsets $t{+}2$ and $t{+}3$, with total loss
+$\mathrm{CE} + 0.5\,\mathrm{MTP}_2 + 0.25\,\mathrm{MTP}_3$. Evaluation is
+\textbf{pure next-token CE on held-out validation} for every variant, so all
+reported losses are directly comparable. The loss-comparison runs use a batch of
+$16{,}384$ tokens/step for $30{,}517$ steps ($\approx 500$M tokens,
+$\approx 4.0$ tokens/parameter at 124M), an intentionally undertrained,
+small-batch regime, chosen for controlled comparison and because it is where
+shared-head multi-token training is already documented to underperform; we return
+to this scope in Section~\ref{sec:discussion}.
+
+\subsection{The per-row instrument}
+The output projection has shape $(V, d)$; row $i$ is the weight vector for
+vocabulary token $i$. For a validation batch we compute the gradient each loss
+deposits on this matrix and, for \textbf{each row}, the cosine between the CE and
+MTP row-gradients. We summarize the resulting distribution of $V$ per-row cosines
+by its median, the fraction with $\cos < 0$ (directional opposition), and the
+fraction with $|\cos| > 0.3$ (appreciable alignment). We contrast these per-row
+statistics with the \textbf{aggregate} cosine (the cosine between the two
+\emph{flattened} matrix gradients), which is the quantity conventional conflict
+diagnostics use. The 47 padding rows ($50{,}304 - 50{,}257$) are masked from all
+per-row statistics.
+
+\paragraph{Measurement windows (stated explicitly).} The gradient
+instrumentation and the loss comparison come from \emph{different} runs, and we
+are careful to keep them distinct. At 124M, the per-row/aggregate trajectory is a
+dedicated diagnostic run logged densely over its first $1000$ steps (A1); the
+$+0.39$-nat loss gap is the separate $30{,}517$-step training comparison
+(Section~\ref{sec:interventions}). Late-training persistence of the alignment is
+therefore \emph{not} established at 124M; it is measured directly only at 350M
+(single seed), where per-row $|\cos|>0.3$ remains high out to step $87{,}000$
+(Section~\ref{sec:rare}). We flag throughout which quantity comes from which run,
+and treat single-seed/single-run measurements as such.
+
+\subsection{Direction versus support}
+\label{sec:dirsupport}
+The distinction the paper turns on: the \textbf{aggregate} cosine measures whether
+the summed gradient vectors point the same way; the \textbf{per-row} distribution
+measures whether they agree row by row. These can disagree. If two losses each
+place their gradient magnitude on a \emph{disjoint} set of rows, then on the rows
+where either is active the other is $\approx 0$, the per-row cosines agree where
+they overlap, and the flattened aggregate is driven toward orthogonality by the
+non-overlap, \emph{without any directional opposition}. We call this
+\textbf{support divergence}, and it is invisible to a cosine conflict diagnostic
+by construction.
+
+\begin{tcolorbox}[colback=gray!5,colframe=gray!45,boxrule=0.4pt,left=4pt,right=4pt,
+  top=3pt,bottom=3pt,fontupper=\small]
+\textbf{A two-row illustration.} Take a weight matrix with two rows and let the
+CE and MTP gradients be
+$g^{\text{ce}}=\big[(1,0),\,(0,0)\big]$ and
+$g^{\text{mtp}}=\big[(0,0),\,(1,0)\big]$: each loss loads all its magnitude on a
+\emph{different} row. The per-row cosine is undefined on the zero rows and
+otherwise never negative, so nothing looks opposed. Yet the flattened vectors
+$(1,0,0,0)$ and $(0,0,1,0)$ are orthogonal: the \textbf{aggregate cosine is $0$}.
+No row's gradients point in opposing directions; the aggregate reads
+``conflict'' purely because the two losses occupy disjoint rows. Support
+divergence is this effect at scale.
+\end{tcolorbox}
+
+One caveat bounds how far we can push this inference. The aggregate cosine is
+\emph{magnitude-weighted} (it is the cosine of the summed, flattened gradients),
+whereas the per-row median and the $\cos<0$ fraction are \emph{unweighted} over
+rows. A near-zero aggregate with a per-row median of $+1$ is therefore consistent
+with (a) disjoint magnitude support across rows, but also with (b) a small number
+of high-norm rows being off-axis while the many low-norm rows align, i.e.\ the
+$0.33\%$ opposed-by-count figure does not bound the opposed \emph{mass}. Our
+committed measurements store per-row cosines but not per-row gradient norms, so we
+cannot separate (a) from (b) here; we report support divergence as the reading
+most consistent with the full pattern (including the emergent decoupling and the
+untied-head control) and flag the direct per-row-norm measurement that would
+settle it as future work (Section~\ref{sec:discussion}).
+
+\subsection{Calibration}
+To confirm the instrument is not trivially reporting alignment, we run a control
+(A3) that measures CE against an unrelated L1 regularizer on the same head. A
+well-calibrated instrument should read near-zero alignment for two unrelated
+losses.
