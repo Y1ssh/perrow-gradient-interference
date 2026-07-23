@@ -1,0 +1,110 @@
+{
+  "runs": [
+    {
+      "file": "norm_support_adamw_seed123.json",
+      "optimizer": "adamw",
+      "seed": 123,
+      "global_cos": -0.33554670214653015,
+      "norm_profile_cos": 0.9713427424430847,
+      "opposed_norm_fraction": 0.7034709453582764,
+      "per_row_0.3": 0.9863103032112122
+    },
+    {
+      "file": "norm_support_adamw_seed42.json",
+      "optimizer": "adamw",
+      "seed": 42,
+      "global_cos": -0.31861522793769836,
+      "norm_profile_cos": 0.984555721282959,
+      "opposed_norm_fraction": 0.6913611888885498,
+      "per_row_0.3": 0.9881607890129089
+    },
+    {
+      "file": "norm_support_adamw_seed456.json",
+      "optimizer": "adamw",
+      "seed": 456,
+      "global_cos": -0.29636716842651367,
+      "norm_profile_cos": 0.9739039540290833,
+      "opposed_norm_fraction": 0.6805536150932312,
+      "per_row_0.3": 0.9848378896713257
+    },
+    {
+      "file": "norm_support_muon_seed123.json",
+      "optimizer": "muon",
+      "seed": 123,
+      "global_cos": -0.16314241290092468,
+      "norm_profile_cos": 0.9760776162147522,
+      "opposed_norm_fraction": 0.6281200647354126,
+      "per_row_0.3": 0.9857134222984314
+    },
+    {
+      "file": "norm_support_muon_seed42.json",
+      "optimizer": "muon",
+      "seed": 42,
+      "global_cos": -0.19282807409763336,
+      "norm_profile_cos": 0.9782925248146057,
+      "opposed_norm_fraction": 0.6069343686103821,
+      "per_row_0.3": 0.9866287112236023
+    },
+    {
+      "file": "norm_support_muon_seed456.json",
+      "optimizer": "muon",
+      "seed": 456,
+      "global_cos": -0.13302326202392578,
+      "norm_profile_cos": 0.9819992780685425,
+      "opposed_norm_fraction": 0.5772305130958557,
+      "per_row_0.3": 0.9771573543548584
+    }
+  ],
+  "by_optimizer": {
+    "adamw": {
+      "n": 3,
+      "seeds": [
+        42,
+        123,
+        456
+      ],
+      "norm_profile_cos": {
+        "mean": 0.9766008059183756,
+        "sd": 0.007007172043008954
+      },
+      "opposed_norm_fraction": {
+        "mean": 0.6917952497800192,
+        "sd": 0.011464829403982257
+      },
+      "global_cos": {
+        "mean": -0.31684303283691406,
+        "sd": 0.019649795730131904
+      },
+      "per_row_0.3": {
+        "mean": 0.9864363272984823,
+        "sd": 0.0016650304986704594
+      },
+      "verdict": "CANCELLATION (high-norm opposed minority sets the aggregate sign)"
+    },
+    "muon": {
+      "n": 3,
+      "seeds": [
+        42,
+        123,
+        456
+      ],
+      "norm_profile_cos": {
+        "mean": 0.9787898063659668,
+        "sd": 0.0029919870460367653
+      },
+      "opposed_norm_fraction": {
+        "mean": 0.6040949821472168,
+        "sd": 0.02556331752989401
+      },
+      "global_cos": {
+        "mean": -0.16299791634082794,
+        "sd": 0.02990266787821414
+      },
+      "per_row_0.3": {
+        "mean": 0.983166495958964,
+        "sd": 0.005224153095744805
+      },
+      "verdict": "CANCELLATION (high-norm opposed minority sets the aggregate sign)"
+    }
+  }
+}
