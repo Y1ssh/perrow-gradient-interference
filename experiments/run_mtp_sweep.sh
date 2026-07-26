@@ -10,14 +10,17 @@ for SCALE in 0.0 1.0 0.25 0.5; do
 done
 echo
 echo "=== T1: zero-training KL prediction from the CE-only checkpoint (the real hypothesis test) ==="
+# expandable_segments avoids the fragmentation OOM seen on the 80GB card; k-scan reads against the per-scale band.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 python3 analysis/estimate_kl.py \
   --ce_ckpt   results/checkpoints/model_scale0.0_seed42.pt \
-  --mtp_ckpt  results/checkpoints/model_scale1.0_seed42.pt
+  --mtp_ckpt  results/checkpoints/model_scale1.0_seed42.pt \
+  --topk_list 256 1024 2048 2>&1 | tee kl_scan.log
 echo
 echo "=== Ceilings + control (re-measures CE-vs-L1 control + CE-vs-CE ceiling on the step-1000 snapshots) ==="
 python3 analysis/measure_ceilings.py \
   --ce_ckpt  results/checkpoints/model_scale0.0_seed42_step1000.pt \
-  --mtp_ckpt results/checkpoints/model_scale1.0_seed42_step1000.pt
+  --mtp_ckpt results/checkpoints/model_scale1.0_seed42_step1000.pt 2>&1 | tee ceilings_rerun.log
 echo
 echo "=== Sweep verdict table (compares measured gaps to estimate_kl's predicted curve) ==="
 python3 analysis/analyze_mtp_sweep.py

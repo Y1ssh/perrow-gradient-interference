@@ -108,11 +108,16 @@ def ce_vs_ce_ceiling(model, b):
         g2 = torch.autograd.grad(ce2, tgt)[0].float()
     model.train(was)
     rc = F.cosine_similarity(g1, g2, dim=1)[:V_REAL].cpu()
-    # active = targets present in EITHER half
+    # ACTIVE-ROW CRITERION for CE-vs-CE: target-PRESENCE (token appears as a t+1/t+2/t+3 target in
+    # EITHER half). The 0.75 mtp/ce norm-ratio test used for CE-vs-MTP does NOT apply here -- both
+    # gradients are CE, so there is no MTP norm to form a ratio against. Presence is the apples-to-
+    # apples active set for the same-loss control.
     tp = torch.zeros(50304, dtype=torch.bool)
     for bb in (b1, b2):
         for off in (1, 2, 3): tp[bb[:, off:].reshape(-1).cpu()] = True
-    return active_stats(rc, tp[:V_REAL])
+    st = active_stats(rc, tp[:V_REAL])
+    st['active_criterion'] = 'target_presence_t1t2t3_either_half'
+    return st
 
 ce_model = load(args.ce_ckpt)
 bb = get_batch(args.batch_size)
@@ -121,21 +126,34 @@ results['ceiling_ce_vs_ce_mtptrained'] = ce_vs_ce_ceiling(mtp_model, bb)
 print(f"CE-vs-CE ceiling (active median): CE-only {results['ceiling_ce_vs_ce_ceonly']['active_median_cos']:.3f}, "
       f"MTP-trained {results['ceiling_ce_vs_ce_mtptrained']['active_median_cos']:.3f}  "
       f"(CE-vs-MTP active median ~0.53 -> {'BELOW ceiling, real structure' if results['ceiling_ce_vs_ce_ceonly']['active_median_cos']>0.7 else 'near ceiling'})")
+print(f"  active-row criterion (CE-vs-CE): {results['ceiling_ce_vs_ce_ceonly']['active_criterion']} "
+      f"(NOT the 0.75 norm-ratio test, which needs an MTP gradient)")
 
-# ---- 3. 3-batch robustness (active fraction is batch-relative) ----
+# Write the control + ceiling numbers NOW, before the robustness loop, so a robustness-loop
+# crash (e.g. OOM on accumulated batches) can never eat the load-bearing results again.
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ceilings_results.json')
+json.dump(results, open(OUT, 'w'), indent=2)
+print(f"Saved control+ceiling to {OUT} (robustness appended below if it completes)")
+
+# ---- 3. batch-relative robustness (active fraction grows with batch count; median is stable) ----
+# Capped at MAX_ROB batches: full-vocab mtp3 cross-entropy on the accumulated batch is the OOM culprit,
+# and 2 points already show the trend (fraction rises, median holds). Raise only if VRAM allows.
+MAX_ROB = int(os.environ.get('CEIL_MAX_ROB', '2'))
 from measurement.measure_norm_support import measure_norm_support
 rob = []
 acc = None
-for nb in range(1, 4):
+for nb in range(1, MAX_ROB + 1):
     b = get_batch(args.batch_size)
     acc = b if acc is None else torch.cat([acc, b], 0)
-    ns = measure_norm_support(mtp_model, acc)
+    try:
+        ns = measure_norm_support(mtp_model, acc)
+    except torch.cuda.OutOfMemoryError:
+        print(f"  {nb} batch(es): OOM -> stopping robustness loop (control+ceiling already saved)")
+        torch.cuda.empty_cache(); break
     rob.append({'n_batches': nb, 'active_fraction': ns['active_fraction'],
                 'active_median_cos': ns['active_median_cos'],
                 'active_opposed_fraction': ns['active_opposed_fraction']})
     print(f"  {nb} batch(es): active {100*ns['active_fraction']:.1f}%, median {ns['active_median_cos']:.3f}")
-results['robustness_3batch'] = rob
-
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ceilings_results.json')
-json.dump(results, open(OUT, 'w'), indent=2)
+results['robustness_batches'] = rob
+json.dump(results, open(OUT, 'w'), indent=2)   # rewrite with robustness appended
 print(f"\nSaved {OUT}")
