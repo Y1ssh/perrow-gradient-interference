@@ -1,0 +1,270 @@
+{
+  "phase": "e",
+  "mtp_scale": 0.0,
+  "w2": 0.0,
+  "w3": 0.0,
+  "seed": 42,
+  "total_steps": 30517,
+  "total_tokens": 499990528,
+  "eval_curve": [
+    {
+      "step": 1,
+      "val_loss": 10.184375
+    },
+    {
+      "step": 500,
+      "val_loss": 5.684375
+    },
+    {
+      "step": 1000,
+      "val_loss": 5.1734375
+    },
+    {
+      "step": 1500,
+      "val_loss": 4.853125
+    },
+    {
+      "step": 2000,
+      "val_loss": 4.6828125
+    },
+    {
+      "step": 2500,
+      "val_loss": 4.5453125
+    },
+    {
+      "step": 3000,
+      "val_loss": 4.49375
+    },
+    {
+      "step": 3500,
+      "val_loss": 4.3875
+    },
+    {
+      "step": 4000,
+      "val_loss": 4.3921875
+    },
+    {
+      "step": 4500,
+      "val_loss": 4.3140625
+    },
+    {
+      "step": 5000,
+      "val_loss": 4.3078125
+    },
+    {
+      "step": 5500,
+      "val_loss": 4.2421875
+    },
+    {
+      "step": 6000,
+      "val_loss": 4.2109375
+    },
+    {
+      "step": 6500,
+      "val_loss": 4.19921875
+    },
+    {
+      "step": 7000,
+      "val_loss": 4.2171875
+    },
+    {
+      "step": 7500,
+      "val_loss": 4.12734375
+    },
+    {
+      "step": 8000,
+      "val_loss": 4.12421875
+    },
+    {
+      "step": 8500,
+      "val_loss": 4.1140625
+    },
+    {
+      "step": 9000,
+      "val_loss": 4.1265625
+    },
+    {
+      "step": 9500,
+      "val_loss": 4.10703125
+    },
+    {
+      "step": 10000,
+      "val_loss": 4.13671875
+    },
+    {
+      "step": 10500,
+      "val_loss": 4.1015625
+    },
+    {
+      "step": 11000,
+      "val_loss": 4.09765625
+    },
+    {
+      "step": 11500,
+      "val_loss": 4.0875
+    },
+    {
+      "step": 12000,
+      "val_loss": 4.07265625
+    },
+    {
+      "step": 12500,
+      "val_loss": 4.078125
+    },
+    {
+      "step": 13000,
+      "val_loss": 4.071875
+    },
+    {
+      "step": 13500,
+      "val_loss": 4.06640625
+    },
+    {
+      "step": 14000,
+      "val_loss": 4.08671875
+    },
+    {
+      "step": 14500,
+      "val_loss": 4.04453125
+    },
+    {
+      "step": 15000,
+      "val_loss": 4.03359375
+    },
+    {
+      "step": 15500,
+      "val_loss": 4.04296875
+    },
+    {
+      "step": 16000,
+      "val_loss": 4.0890625
+    },
+    {
+      "step": 16500,
+      "val_loss": 4.01171875
+    },
+    {
+      "step": 17000,
+      "val_loss": 4.028125
+    },
+    {
+      "step": 17500,
+      "val_loss": 4.046875
+    },
+    {
+      "step": 18000,
+      "val_loss": 4.046875
+    },
+    {
+      "step": 18500,
+      "val_loss": 3.98828125
+    },
+    {
+      "step": 19000,
+      "val_loss": 4.0171875
+    },
+    {
+      "step": 19500,
+      "val_loss": 4.02421875
+    },
+    {
+      "step": 20000,
+      "val_loss": 4.01875
+    },
+    {
+      "step": 20500,
+      "val_loss": 3.98515625
+    },
+    {
+      "step": 21000,
+      "val_loss": 4.03203125
+    },
+    {
+      "step": 21500,
+      "val_loss": 3.98671875
+    },
+    {
+      "step": 22000,
+      "val_loss": 4.009375
+    },
+    {
+      "step": 22500,
+      "val_loss": 4.003125
+    },
+    {
+      "step": 23000,
+      "val_loss": 3.97734375
+    },
+    {
+      "step": 23500,
+      "val_loss": 4.02265625
+    },
+    {
+      "step": 24000,
+      "val_loss": 4.00390625
+    },
+    {
+      "step": 24500,
+      "val_loss": 3.9984375
+    },
+    {
+      "step": 25000,
+      "val_loss": 4.0
+    },
+    {
+      "step": 25500,
+      "val_loss": 4.009375
+    },
+    {
+      "step": 26000,
+      "val_loss": 4.02890625
+    },
+    {
+      "step": 26500,
+      "val_loss": 3.98515625
+    },
+    {
+      "step": 27000,
+      "val_loss": 3.984375
+    },
+    {
+      "step": 27500,
+      "val_loss": 3.95546875
+    },
+    {
+      "step": 28000,
+      "val_loss": 4.0015625
+    },
+    {
+      "step": 28500,
+      "val_loss": 4.02421875
+    },
+    {
+      "step": 29000,
+      "val_loss": 3.9671875
+    },
+    {
+      "step": 29500,
+      "val_loss": 4.00546875
+    },
+    {
+      "step": 30000,
+      "val_loss": 3.97734375
+    },
+    {
+      "step": 30500,
+      "val_loss": 3.996875
+    },
+    {
+      "step": 30517,
+      "val_loss": 3.96796875
+    }
+  ],
+  "final_val_loss": 3.994140625,
+  "final_ce_t1": 3.994140625,
+  "final_ce_t2": 8.975,
+  "final_ce_t3": 9.5515625,
+  "final_mean_entropy": 4.371296206116677,
+  "total_time": 2637.7838881015778,
+  "checkpoint_path": "/root/perrow-gradient-interference/results/checkpoints/model_scale0.0_seed42.pt"
+}
