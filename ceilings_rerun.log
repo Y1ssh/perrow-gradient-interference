@@ -1,0 +1,16 @@
+  GPT2 initialized (124M params):
+    Total params:   124,354,560  (124.4M)
+    Muon params:     84,934,656  (84.9M)  [68%  Q/K/V/O + MLP per layer]
+    Adam params:     39,419,904  (39.4M)  [32%  wte/wpe/lm_head]
+CONTROL CE-vs-L1 (active): median -0.029, %|cos|>0.3 1.0% (full-vocab 36.2%)
+  GPT2 initialized (124M params):
+    Total params:   124,354,560  (124.4M)
+    Muon params:     84,934,656  (84.9M)  [68%  Q/K/V/O + MLP per layer]
+    Adam params:     39,419,904  (39.4M)  [32%  wte/wpe/lm_head]
+CE-vs-CE ceiling (active median): CE-only -0.236, MTP-trained -0.231  (CE-vs-MTP active median ~0.53 -> near ceiling)
+  active-row criterion (CE-vs-CE): target_presence_t1t2t3_either_half (NOT the 0.75 norm-ratio test, which needs an MTP gradient)
+Saved control+ceiling to /root/perrow-gradient-interference/analysis/ceilings_results.json (robustness appended below if it completes)
+  1 batch(es): active 8.9%, median 0.541
+  2 batch(es): active 14.5%, median 0.539
+
+Saved /root/perrow-gradient-interference/analysis/ceilings_results.json
