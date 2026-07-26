@@ -42,33 +42,45 @@ distinction is central to our findings, which locate the operative structure in
 per-row gradient norms rather than in the direction the aggregate cosine reports.
 Independently, \citet{jiang2023forkmerge} argue that optimization-based
 gradient-coordination methods can overlook auxiliary-target generalization, so
-that gradient-conflict signals do not by themselves determine negative transfer;
-our measurement gives a concrete mechanism for how a conflict diagnostic can
-mislead at the output head. Concretely, our per-row measurement shows the global
-cosine is a lossy summary there: it reads $\approx 0$ while the per-row structure
-is near-perfectly aligned. Conflict surgery therefore has little of the targeted
-directional conflict to act on (Appendix~\ref{app:surgery}), not because surgery
-is poorly implemented, but because the aggregate is set by per-row norm structure,
-not by a directional conflict surgery can reproject.
+that gradient-conflict signals do not by themselves determine negative transfer.
+This connects to a broader empirical result: \citet{kurin2022unitary} and
+\citet{xin2022mtohelp} find that plain loss-summing (unitary scalarization)
+matches or beats specialized multi-task optimizers, which appear to act largely
+as regularizers rather than by resolving genuine conflict. Our surgery-null
+result is a mechanistic instance of their empirical claim: the opposition a
+conflict diagnostic detects at the output head is mass-dominant (the opposed rows
+carry $60$--$69\%$ of the gradient-magnitude mass) yet causally inert, so a
+projection that removes exactly that opposition does not repair the degradation
+(Appendix~\ref{app:surgery}). The aggregate is set by per-row norm structure, and
+conflict surgery, though it has substantial mass to reproject, does not recover
+the baseline.
 
 \paragraph{The output head as a bottleneck.} \citet{yang2018softmax} showed the
 softmax output layer is a rank bottleneck on the distributions a model can
-express. \citet{godey2026lmhead} recently showed, for a \emph{single} loss, that
-backpropagating through the low-rank output head destroys most of the gradient's
-norm, a norm-space single-loss bottleneck. Our result is the direction-space,
-\emph{multi-loss} complement: we ask what a cosine diagnostic reports when two
-losses share that head, and find their per-row directions align while their
-support appears to compete (an inference, not a direct measurement; see
-Section~\ref{sec:discussion}).
+express, and a line on \emph{representation degeneration} and anisotropy
+\citep{gao2019degeneration} shows the learned output embeddings collapse toward a
+narrow cone, sharing direction across tokens. That shared-direction structure is
+one reason per-row gradients on the head look aligned, and it predicts the $+1$
+median we observe on inactive rows. \citet{godey2026lmhead} recently showed, for
+a \emph{single} loss, that backpropagating through the low-rank output head
+destroys most of the gradient's norm, a norm-space single-loss bottleneck. Their
+object is the gradient flowing backward into the hidden state $h$ through a
+rank-$d$ projection; ours is the gradient deposited \emph{on} the weight matrix
+$W$ and its per-row structure, so the two results concern different tensors. Our
+result is the direction-space, \emph{multi-loss} complement: we ask what a cosine
+diagnostic reports when two losses share that head, and find their per-row
+directions align while a high-norm opposed minority sets the aggregate (measured
+directly via the per-row gradient norms; see Section~\ref{sec:emergent}).
 
 \paragraph{Positioning.} Relative to prior work, (i) we provide a per-row
 gradient measurement at the tied output projection that a global cosine misses;
 (ii) we show the next-token degradation of small-scale shared-head multi-token
-training, a documented but unexplained failure mode \citep{zuhri2025top}, co-occurs with \emph{aligned} per-row gradients rather than with directional
-conflict, which we read as \emph{support} competition (inferred, not directly
-measured); and (iii) our capacity-separated auxiliary
+training, a documented but unexplained failure mode \citep{zuhri2025top}, co-occurs with \emph{aligned} per-row gradients rather than with broad directional
+conflict, the aggregate being set by a high-norm opposed minority (measured
+directly via the per-row gradient norms); and (iii) our capacity-separated auxiliary
 \emph{reduces} the next-token cost in the same spirit as capacity-added fixes,
 though in our runs it does not fully recover the CE-only baseline within noise
 (neither the standard nor a tuned variant); our contribution is not a fix but the
-\emph{diagnostic mechanism}: why conflict-based remedies have nothing to act on
-here, and why capacity separation is the lever that helps.
+\emph{diagnostic mechanism}: why conflict-based remedies act on a mass-dominant
+but causally-inert opposition here, and why capacity separation is the lever that
+helps.

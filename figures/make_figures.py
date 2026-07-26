@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Regenerate all five paper figures from the committed result JSONs.
+Regenerate all seven paper figures from the committed result JSONs.
 
     python figures/make_figures.py --results results --out figures
 
-No GPU or training needed — reads only `results/`. Produces fig1..fig5 as
-.png + .pdf + .csv in --out. Numbers match stats.py.
+No GPU or training needed; reads only `results/`. Produces fig1..fig6 plus
+fig_token_lorenz as .png + .pdf + .csv in --out. Numbers match stats.py.
+fig1/fig5/fig_token_lorenz read results/norm_support/ (per-row norms + cosines).
 
 Figures:
   1  Per-row cosine distribution (sign-split, points-on-log) + control
@@ -54,48 +55,49 @@ def _final_measurement(meas, step=None):
     return meas[-1]
 
 
-def fig1(results, out):
-    a1 = _load(f"{results}/phase_a/a1_muon_interference.json")
-    a3 = _load(f"{results}/phase_a/a3_control.json")
-    m = _final_measurement(a1["measurements"], step=1000)
-    rc = np.asarray(m["row_cosines"])[:REAL_VOCAB]  # drop 47 padding rows
-    counts, edges = np.histogram(rc, bins=60, range=(-1, 1))
-    centers = 0.5 * (edges[:-1] + edges[1:])
-    frac_neg = 100.0 * (rc < 0).mean()
-    mtp_frac = 100.0 * (np.abs(rc) > 0.3).mean()
-    ctrl = a3.get("per_row_fractions", {})
-    ctrl_frac = 100.0 * float(ctrl.get("0.3", ctrl.get(0.3, 0.0041547)))
+def _norm_support(results, opt="muon", seed=42):
+    """Load a norm_support run and return (row_cos, ce_norm, mtp_norm, active) on real rows."""
+    d = _load(f"{results}/norm_support/norm_support_{opt}_seed{seed}.json")
+    rc = np.asarray(d["row_cosines"])[:REAL_VOCAB]
+    ce = np.asarray(d["ce_row_norms"])[:REAL_VOCAB]
+    mt = np.asarray(d["mtp_row_norms"])[:REAL_VOCAB]
+    ratio = np.where(ce > 0, mt / ce, 0.75)
+    active = np.abs(ratio - 0.75) > 0.01   # by-construction target-presence proxy (0.75 identity)
+    return rc, ce, mt, active
 
-    fig = plt.figure(figsize=(7.2, 3.1))
-    g = fig.add_gridspec(1, 3, width_ratios=[2.3, 1, 0.9], wspace=0.5)
-    ax, axc, axl = fig.add_subplot(g[0]), fig.add_subplot(g[1]), fig.add_subplot(g[2])
-    msk = counts > 0
-    cols = [ALARM if c < 0 else FOC for c in centers[msk]]
-    ax.vlines(centers[msk], 0.5, counts[msk], color="#ccc", lw=0.5, zorder=1)
-    ax.scatter(centers[msk], counts[msk], s=10, c=cols, edgecolors="none", zorder=3)
-    ax.set_yscale("log"); ax.set_ylim(0.5, counts.max() * 1.6); ax.set_xlim(-1.05, 1.05)
-    ax.axvline(np.median(rc), color=META_GREY, lw=1, ls="--", zorder=2)
-    ax.set_xlabel("Per-row cosine (CE vs MTP gradient)"); ax.set_ylabel("Rows (log)")
-    ax.set_title("Per-row gradients align in direction", fontsize=8, loc="left")
-    ax.text(-0.5, 0.9, f"median +{np.median(rc):.2f}", fontsize=6, color=META_GREY,
-            transform=ax.get_xaxis_transform(), ha="center")
-    ax.text(-1.0, 0.68, f"{frac_neg:.2f}% of rows cos<0", fontsize=6, color=ALARM,
-            transform=ax.get_xaxis_transform())
-    axc.bar([0, 1], [mtp_frac, ctrl_frac], color=[FOC, META_GREY], width=0.62)
-    axc.set_xticks([0, 1]); axc.set_xticklabels(["CE vs\nMTP", "CE vs L1\n(control)"], fontsize=6)
-    axc.set_ylabel("Rows |cos| > 0.3 (%)"); axc.set_ylim(0, 112)
-    for x, val, col in [(0, mtp_frac, FOC), (1, ctrl_frac, META_GREY)]:
-        axc.text(x, val + 3, f"{val:.1f}%", ha="center", fontsize=6.5, color=col, fontweight="bold")
-    axc.set_title("Instrument\ncalibrates", fontsize=8, loc="left")
-    axl.axis("off")
-    axl.scatter([], [], s=12, color=FOC, label="aligned (cos ≥ 0)")
-    axl.scatter([], [], s=12, color=ALARM, label="opposed (cos < 0)")
-    axl.legend(loc="upper left", frameon=False, fontsize=6.5, bbox_to_anchor=(0, 0.95))
-    axl.text(0, 0.42, "GPT-2 124M, step 1000\n50,257 vocab rows\n(47 padding masked)",
-             fontsize=5.8, color=META_GREY, transform=axl.transAxes, va="top")
+
+def fig1(results, out):
+    """Active-row per-row cosine histogram (main) with full-vocab spike inset."""
+    rc, ce, mt, active = _norm_support(results, "muon", 42)
+    a = rc[active]
+    fig, ax = plt.subplots(figsize=(5.0, 3.2))
+    bins = np.linspace(-1, 1, 61)
+    _, _, patches = ax.hist(a, bins=bins, color=FOC, alpha=0.85, edgecolor="none")
+    for i, p in enumerate(patches):
+        if bins[i] < 0:
+            p.set_facecolor(ALARM)
+    med = float(np.median(a)); ymax = ax.get_ylim()[1]
+    ax.axvline(med, color="k", lw=1.2, ls="--")
+    ax.annotate(f"median {med:.2f}", xy=(med, ymax * 0.42), xytext=(med + 0.08, ymax * 0.52),
+                fontsize=7.5, arrowprops=dict(arrowstyle="->", lw=0.9))
+    ax.set_xlabel("Per-row cosine (active rows)"); ax.set_ylabel("Number of rows")
+    ax.set_title("On rows that carry supervision, CE/MTP gradients are aligned but not identical",
+                 fontsize=8, loc="left")
+    ax.text(0.015, 0.42, f"{100*(a<0).mean():.1f}%\nopposed", transform=ax.transAxes,
+            color=ALARM, fontsize=7.5, va="top")
+    axi = ax.inset_axes([0.10, 0.52, 0.34, 0.40])
+    axi.hist(rc, bins=bins, color="#999999", alpha=0.9, edgecolor="none")
+    axi.axvline(1.0, color="k", lw=0.8, ls="--")
+    axi.set_title("full vocabulary (median +1)", fontsize=6.2)
+    axi.set_xticks([-1, 0, 1]); axi.tick_params(labelsize=5.5); axi.set_yticks([])
+    axi.text(0.04, 0.82, f"{100*active.mean():.0f}% active\n(rest parallel)",
+             transform=axi.transAxes, fontsize=5.5, va="top")
     _save(fig, out, "fig1_perrow_histogram")
-    _csv(out, "fig1_perrow_histogram", ["cosine_bin_center", "count"], zip(centers, counts))
-    return dict(median=float(np.median(rc)), frac_neg=frac_neg, mtp_frac=mtp_frac, ctrl_frac=ctrl_frac)
+    counts, edges = np.histogram(a, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    _csv(out, "fig1_perrow_histogram", ["active_cosine_bin_center", "count"], zip(centers, counts))
+    return dict(active_median=med, active_frac_neg=float(100*(a<0).mean()),
+                active_fraction=float(100*active.mean()))
 
 
 def fig2(results, out):
@@ -172,26 +174,93 @@ def fig4(results, out):
          [(k, np.mean(v), len(v)) for k, v in data.items()])
 
 
+def _freq_quints(results, opt, seed=42):
+    """Per token-id quintile (GPT-2 id ~ frequency): full-vocab & active-only mean|cos|, active %."""
+    rc, ce, mt, active = _norm_support(results, opt, seed)
+    qs = np.array_split(np.arange(REAL_VOCAB), 5)
+    full = [float(np.mean(np.abs(rc[q]))) for q in qs]
+    actv = [float(np.mean(np.abs(rc[q][active[q]]))) if active[q].any() else np.nan for q in qs]
+    frac = [float(100 * active[q].mean()) for q in qs]
+    return full, actv, frac
+
+
 def fig5(results, out):
-    # Use mean_abs_cos (non-saturating) rather than the frac>0.3 (ceiling-bound) statistic.
-    def quints(name):
-        d = _load(f"{results}/phase_a/{name}")["token_freq_correlation"]["1000"]
-        qs = ["bottom_20%", "20-40%", "40-60%", "60-80%", "top_20%"]
-        return [d[q]["mean_abs_cos"] for q in qs], qs
-    mv, qs = quints("a1_muon_interference.json")
-    av, _ = quints("a2_adamw_interference.json")
-    fig, ax = plt.subplots(figsize=(4.8, 3.1))
-    x = np.arange(5)
-    ax.plot(x, mv, "-o", color=FOC, lw=1.6, ms=4, label="Muon")
-    ax.plot(x, av, "--^", color=AUX, lw=1.4, ms=4, label="AdamW")
-    ax.set_xticks(x)
-    ax.set_xticklabels(["rarest\n20%", "20–40%", "40–60%", "60–80%", "most\ncommon"], fontsize=6)
-    ax.set_ylabel("Mean per-row |cos|"); ax.set_xlabel("Token frequency quintile")
-    ax.set_ylim(0.82, 1.01)
-    ax.set_title("Rare tokens show higher per-row alignment (single run)", fontsize=8, loc="left")
-    ax.legend(loc="lower left", frameon=False, fontsize=6.5)
+    """Rare-token effect is a construction artifact: full-vocab apparent effect vs active-row flat."""
+    mf, ma, mfr = _freq_quints(results, "muon")
+    af, aa, _ = _freq_quints(results, "adamw")
+    x = np.arange(5); labels = ["most\ncommon", "", "middle", "", "rarest"]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.6, 3.0))
+    ax1.plot(x, mf, "-o", color="#999999", lw=1.6, ms=4, label="Muon")
+    ax1.plot(x, af, "--^", color="#999999", lw=1.4, ms=4, alpha=0.6, label="AdamW")
+    ax1.set_xticks(x); ax1.set_xticklabels(labels, fontsize=6.5)
+    ax1.set_ylabel("Mean per-row |cos|"); ax1.set_ylim(0.80, 1.01)
+    ax1.set_title("Full vocabulary: apparent rare-token effect", fontsize=7.5, loc="left")
+    ax1.legend(frameon=False, fontsize=6.5, loc="lower left")
+    ax1.text(0.5, 0.05, "artifact", transform=ax1.transAxes, fontsize=7, style="italic", color=ALARM)
+    ax2b = ax2.twinx()
+    ax2b.bar(x, mfr, width=0.5, color="#e0e0e0", zorder=0)
+    ax2b.set_ylabel("% active (bars)", fontsize=6.5, color="#888888")
+    ax2b.tick_params(labelsize=5.5, colors="#888888"); ax2b.set_ylim(0, 30)
+    ax2.plot(x, ma, "-o", color=FOC, lw=1.6, ms=4, label="Muon", zorder=3)
+    ax2.plot(x, aa, "--^", color=FOC, lw=1.4, ms=4, alpha=0.6, label="AdamW", zorder=3)
+    ax2.set_xticks(x); ax2.set_xticklabels(labels, fontsize=6.5)
+    ax2.set_ylabel("Active-row mean |cos|"); ax2.set_ylim(0.0, 1.01)
+    ax2.set_title("Active rows: effect vanishes", fontsize=7.5, loc="left")
+    ax2.legend(frameon=False, fontsize=6.5, loc="upper right")
+    ax2.set_zorder(ax2b.get_zorder() + 1); ax2.patch.set_visible(False)
+    fig.text(0.5, 0.005, "Token frequency quintile", ha="center", fontsize=7.5)
+    fig.suptitle("The rare-token alignment effect is a construction artifact: rare tokens are ~98% inactive",
+                 fontsize=8, y=1.0)
+    fig.tight_layout(rect=[0, 0.03, 1, 0.97])
     _save(fig, out, "fig5_token_frequency")
-    _csv(out, "fig5_token_frequency", ["quintile", "muon_mean_abs_cos", "adamw_mean_abs_cos"], zip(qs, mv, av))
+    _csv(out, "fig5_token_frequency",
+         ["quintile", "muon_full", "muon_active", "muon_active_pct", "adamw_full", "adamw_active"],
+         zip(["common", "q2", "middle", "q4", "rarest"], mf, ma, mfr, af, aa))
+
+
+def fig_token_lorenz(results, out):
+    """Lorenz curve of gradient mass + decoded top-opposed tokens (needs tiktoken)."""
+    rc, ce, mt, active = _norm_support(results, "muon", 42)
+    mass = ce * mt; opp = rc < 0
+    order = np.argsort(mass)[::-1]; cummass = np.cumsum(mass[order]) / mass.sum()
+    n_23 = int(np.searchsorted(cummass, 2/3) + 1)
+    try:
+        import tiktoken
+        enc = tiktoken.get_encoding("gpt2")
+        decode = lambda t: enc.decode([int(t)])
+    except Exception:
+        decode = lambda t: f"id{t}"
+    opp_idx = np.where(opp)[0]; obm = opp_idx[np.argsort(mass[opp_idx])[::-1]]
+    top = [(decode(t), float(rc[t]), float(mass[t] / mass.sum() * 100)) for t in obm[:12]]
+    fig = plt.figure(figsize=(7.0, 3.3))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.15], wspace=0.32)
+    axL = fig.add_subplot(gs[0, 0])
+    axL.plot(np.arange(1, len(cummass) + 1), cummass * 100, color=FOC, lw=1.8)
+    axL.plot([0, REAL_VOCAB], [0, 100], ls=":", color="#aaaaaa", lw=0.9)
+    axL.axhline(66.7, color=ALARM, ls="--", lw=0.8)
+    axL.annotate(f"{n_23} rows\n= 2/3 of mass", xy=(n_23, 66.7), xytext=(n_23 + 180, 52),
+                 fontsize=7, arrowprops=dict(arrowstyle="->", lw=0.8, color=ALARM))
+    axL.set_xlim(0, 600); axL.set_ylim(0, 101)
+    axL.set_xlabel("Number of rows (ranked by gradient mass)")
+    axL.set_ylabel("Cumulative % of gradient mass")
+    axL.set_title("Gradient mass is extremely concentrated", fontsize=8, loc="left")
+    axT = fig.add_subplot(gs[0, 1]); axT.axis("off")
+    axT.set_title("Highest-mass opposed rows are frequent function words", fontsize=8, loc="left")
+    cell = [[repr(tok), f"{c:+.2f}", f"{m:.1f}"] for tok, c, m in top]
+    tbl = axT.table(cellText=cell, colLabels=["token", "cos", "% mass"], loc="center",
+                    cellLoc="left", colWidths=[0.5, 0.25, 0.25])
+    tbl.auto_set_font_size(False); tbl.set_fontsize(7); tbl.scale(1, 1.25)
+    for (r, cc), cellobj in tbl.get_celld().items():
+        cellobj.set_edgecolor("#dddddd")
+        if r == 0:
+            cellobj.set_text_props(weight="bold"); cellobj.set_facecolor("#f0f0f0")
+        elif float(cell[r - 1][2]) >= 3:
+            cellobj.set_facecolor("#fbe9e9")
+    fig.suptitle(f"{int(opp.sum())} opposed rows ({100*opp.mean():.2f}% of vocab) carry "
+                 f"{100*mass[opp].sum()/mass.sum():.0f}% of the gradient mass", fontsize=8.5, y=1.01)
+    _save(fig, out, "fig_token_lorenz")
+    _csv(out, "lorenz_curve", ["n_rows", "cumulative_mass_frac"],
+         ((n, f"{cummass[n-1]:.5f}") for n in list(range(1, 101)) + list(range(100, 601, 10))))
 
 
 def fig6(results, out):
@@ -249,9 +318,10 @@ def main():
     _style()
     s = fig1(a.results, a.out); fig2(a.results, a.out); fig3(a.results, a.out)
     fig4(a.results, a.out); fig5(a.results, a.out); fig6(a.results, a.out)
+    fig_token_lorenz(a.results, a.out)
     print("Figures written to", a.out)
-    print(f"  fig1: median +{s['median']:.2f}, {s['frac_neg']:.2f}% cos<0, "
-          f"{s['mtp_frac']:.1f}% |cos|>0.3, control {s['ctrl_frac']:.2f}%")
+    print(f"  fig1: active median {s['active_median']:.2f}, {s['active_frac_neg']:.2f}% opposed, "
+          f"{s['active_fraction']:.1f}% of vocab active")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 \documentclass{article}
 % ============================================================================
-% Aligned but Apart — TMLR submission source.
+% Aligned but Apart: TMLR submission source.
 % Requires tmlr.sty (from https://github.com/mlresearch/tmlr-style or the TMLR
 % author kit). Compile: latexmk -pdf main.tex   (or upload to Overleaf).
 % If tmlr.sty is unavailable, the \usepackage{tmlr} line can be swapped for the
@@ -15,10 +15,10 @@
 \usepackage[most]{tcolorbox}
 \usepackage[hidelinks]{hyperref}
 
-\title{Aligned but Apart: Why Cosine Conflict Diagnostics Misread\\
-Auxiliary-Loss Interference at the Output Projection}
+\title{Aligned but Apart: Why Cosine Conflict Diagnostics\\
+Misread Auxiliary-Loss Interference at the Output Projection}
 
-% Single author — fill in identifying details for camera-ready.
+% Single author: fill in identifying details for camera-ready.
 \author{\name Author Name \email author@institution.edu \\
   \addr Institution}
 
@@ -31,39 +31,26 @@ Auxiliary-Loss Interference at the Output Projection}
 
 % ---------------------------------------------------------------------------
 \begin{abstract}
-Cosine similarity between task gradients is the standard instrument for
-detecting \emph{conflict} in multi-task and auxiliary-loss training: a negative
-cosine is read as interference, and gradient-surgery methods act on that signal.
-We show that at a language model's shared, tied output projection (the regime
-this paper is scoped to, distinct from the separate-head multi-token prediction
-used at scale) this instrument is misleading. Instrumenting the per-row gradients that a next-token (CE) loss
-and an auxiliary multi-token (MTP) loss deposit on the output projection, we find
-they are near-perfectly \emph{aligned in direction}: the median per-row cosine is
-$\approx +1$, only ${\approx}0.3\%$ of rows show directional opposition
-($\cos<0$), and $98.4\%$ of rows exceed $|\cos|>0.3$, against a calibrated
-control (CE versus an unrelated L1 loss) on the same threshold that reads
-${\approx}0.4\%$. Yet the \emph{aggregate} cosine over the flattened matrix sits
-near $0$, and we show this decoupling \emph{emerges during training} from an
-initial state where both metrics agree at $\approx +0.99$. The aggregate
-near-zero is therefore not the cancellation of opposing per-row gradients; it is
-consistent with the two losses concentrating their gradient \emph{magnitude} on
-\emph{different output rows} (\emph{support divergence}; inferred from aligned
-per-row directions plus a near-zero aggregate, not directly measured; see
-Section~\ref{sec:discussion}). Adding the shared MTP objective degrades next-token loss substantially
-($+0.39$ nats at 124M, Welch's $t$, $p\approx 8\times10^{-5}$), but this
-degradation co-occurs with aligned, not conflicting, gradients. We further
-report that the high per-row alignment is \emph{general} across the model's weight
-matrices, persists when the head is \emph{untied}, and that rarer tokens show
-\emph{higher} per-row alignment than common ones; and that no capacity-separated
-auxiliary we tried recovers the CE-only baseline (the closest, a tuned
-contrastive variant, is statistically indistinguishable from baseline at $n{=}3$,
-$p{\approx}0.19$, but its point estimate still sits above it: non-recovery, not
-a demonstrated recovery). The methodological
-consequence is direct: in this regime, cosine-based conflict diagnostics measure
-the wrong axis, because the operative axis is gradient \emph{support}, not direction.
-Our account complements \citet{godey2026lmhead}, who characterize how the output
-head suppresses a \emph{single} loss's gradient \emph{norm}; we characterize, in
-direction-space, what a cosine diagnostic sees when \emph{two} losses share it.
+Cosine similarity between task gradients is the standard instrument for detecting
+\emph{conflict} in multi-task and auxiliary-loss training: a negative cosine is
+read as interference, and gradient-surgery methods act on that signal. We show
+that at a language model's shared, tied output projection this instrument is
+misleading. Instrumenting the per-row gradients a next-token (CE) loss and an
+auxiliary multi-token (MTP) loss deposit on the projection, we find they are
+aligned in direction: on the ${\approx}8$--$12\%$ of vocabulary rows that receive
+a target in the batch (the remaining ${\approx}88$--$92\%$ are scalar multiples
+with cosine $+1$ by construction) the median per-row cosine is ${\approx}0.5$ and
+only ${\approx}3\%$ are opposed. Yet the \emph{aggregate} cosine over the
+flattened matrix sits near $0$. Instrumenting the per-row gradient \emph{norms}
+(three seeds, both optimizers) shows the two losses load their magnitude on the
+\emph{same} rows (norm-profile cosine $0.98$), yet $60$--$69\%$ of the magnitude
+mass sits on a tiny opposed minority (${\approx}0.3\%$ of rows, decoding to the
+most frequent function words). The aggregate near-zero is therefore a
+\emph{norm-weighted cancellation}, not disjoint support. Adding shared MTP
+degrades next-token loss ($+0.39$ nats at 124M, $p{\approx}8{\times}10^{-5}$),
+yet this co-occurs with aligned, not conflicting, gradients. The methodological
+consequence is direct: in this regime the aggregate cosine is \emph{uninformative
+about where interference lives}, and per-row norms, not per-row directions, set it.
 \end{abstract}
 
 % ---------------------------------------------------------------------------
@@ -92,35 +79,45 @@ finding is diagnostic: \textbf{the cosine conflict signal is misleading here.} W
 instrument the gradient each loss deposits on the output projection and examine
 it \textbf{row by row} (one row per vocabulary item). Two facts emerge, both from
 data already in hand. First, the per-row gradients are not opposed; they are
-\emph{aligned}: the median per-row cosine sits at $\approx +1$ across the
-measured window (the first 1000 steps of a dedicated 124M diagnostic run, and out
-to 87k steps at 350M; Section~\ref{sec:aligned}), and ${\approx}0.3\%$ of rows
-show negative cosine, while $98.4\%$ exceed $|\cos|>0.3$ against a control (CE
-versus an unrelated regularizer) that reads ${\approx}0.4\%$ on the same
-threshold. Second,
+\emph{aligned}: among the rows that receive a target in the measurement batch
+(the ${\approx}8$--$12\%$ that are not scalar multiples by construction;
+Section~\ref{sec:aligned}), the median per-row cosine is ${\approx}0.53$ and
+${\approx}3\%$ are opposed; over all rows the median is $+1$ and $98.4\%$ exceed
+$|\cos|>0.3$ against a control (CE versus an unrelated regularizer) that reads
+${\approx}0.4\%$ on the same threshold. Either way the per-row directions are
+predominantly aligned, in sharp contrast to the near-zero aggregate. Second,
 the \emph{aggregate} cosine over the flattened matrix is nonetheless near zero,
 and tracking it over training shows the two metrics \textbf{start together} (both
 $\approx +0.99$ at initialization) and then \textbf{decouple}: within ${\sim}200$
 steps the aggregate falls below zero while the per-row median stays at
-$\approx +1$. The natural reading of an aggregate near zero (that opposing
-per-row gradients cancel) cannot hold here, because there is almost nothing to
-cancel. A cancellation-free way to obtain a near-zero aggregate while per-row
-directions agree is for the two losses to place their gradient \emph{magnitude}
-on \emph{different rows}: direction agrees, support diverges.
+$\approx +1$. By count, almost no rows are opposed. But the aggregate cosine is
+magnitude-weighted, and directly instrumenting the per-row gradient norms shows
+where the weight lies: the two losses load their magnitude on the \emph{same}
+rows (norm-profile cosine $0.98$), yet a tiny high-norm opposed minority
+($\approx 0.3\%$ of rows) carries most of the mass ($60$--$69\%$ across
+optimizers), and it is this minority that pulls the flattened sum negative. The
+alignment is real and holds for the vast majority of rows; the aggregate is a
+\emph{norm-weighted cancellation} the cosine cannot localize.
 
-We frame this \textbf{support divergence} as the axis a cosine diagnostic cannot
-see (Figure~\ref{fig:schematic}), and we relate it to the observed degradation
-without claiming to have isolated its cause. Adding the shared MTP objective degrades next-token loss by
+We frame this norm-weighted opposition as the structure a cosine diagnostic
+cannot see (Figure~\ref{fig:schematic}), and we relate it to the observed
+degradation without claiming to have isolated its cause. Adding the shared MTP objective degrades next-token loss by
 ${\approx}0.39$ nats (${\approx}10\%$) at 124M, a large and unambiguous effect
 (Welch's $t$, $p\approx 8\times10^{-5}$), yet it co-occurs with aligned, not
 conflicting, per-row gradients (the degradation is measured on the full
 30{,}517-step run; per-row alignment on the diagnostic runs above). Three further
 observations, all from committed
-runs, are consistent with a capacity/support account rather than a
+runs, are consistent with a norm-weighting/capacity account rather than a
 directional-conflict one. (i) Conflict-targeted gradient surgery does not recover
-the baseline, as expected when there is negligible directional conflict to
-remove (Appendix~\ref{app:surgery}). (ii) Detaching the auxiliary's gradient from
-the shared head (stop-gradient) makes the damage \emph{worse}, not better. (iii)
+the baseline even though the opposition it targets is real and mass-dominant: the
+opposed rows are negligible by count ($0.3\%$) but carry the majority of the
+gradient-magnitude mass ($60$--$69\%$), and per-row Gram--Schmidt on the head
+(Appendix~\ref{app:surgery}) removes exactly that opposition, yet the degradation
+does not move. The opposition the aggregate cosine detects is mass-dominant and
+causally inert. (ii) Detaching the auxiliary's gradient from
+the shared head (stop-gradient) makes the damage \emph{worse}, not better, though
+this is a confounded probe (stop-gradient also removes the auxiliary's ability to
+shape the shared representation) and we treat it as suggestive only. (iii)
 Giving the auxiliary its own capacity (a layer-split contrastive auxiliary)
 reduces but does \emph{not} eliminate the gap: neither the standard nor a
 hyperparameter-tuned variant recovers the CE-only baseline within noise when
@@ -137,15 +134,17 @@ per-row alignment is \textbf{general} across the network's weight matrices (atte
 aggregate cosine), so the output head is not special because the metric singles
 it out; it is consequential because it directly produces the logits. And the
 alignment \textbf{persists when the head is untied}, so it is a property of the
-output-projection gradient, not an artifact of weight tying. We also observe that
-\emph{rarer} tokens exhibit \emph{higher} per-row alignment than common ones,
-under both optimizers. Finally, our account is a direction-space, multi-loss
+output-projection gradient, not an artifact of weight tying. A full-vocabulary
+reading suggests rarer tokens align more, but we show this is a construction
+artifact: rare tokens are almost never active, so their rows are dominated by
+the cosine-$+1$ parallel majority, and on active rows the effect vanishes. Finally,
+our account is a direction-space, multi-loss
 complement to \citet{godey2026lmhead}, who show that backpropagating a
 \emph{single} loss through the low-rank output head destroys most of its gradient
 \emph{norm}; we ask what a \emph{cosine} diagnostic reports when \emph{two} losses
-share that head, and answer that their per-row directions align while their
-support appears to compete: an inference from aligned directions plus a
-near-zero aggregate, which a direct per-row-norm measurement would confirm.
+share that head, and answer that their per-row directions align while a high-norm
+opposed minority sets the aggregate: measured directly via the per-row gradient
+norms (Section~\ref{sec:emergent}), not inferred.
 
 We are explicit about scope. Every result is for a \textbf{single shared tied
 output head}, at 124M ($n{=}5$) and 350M (single seed), undertrained, small-batch.
@@ -162,24 +161,31 @@ script:
 \begin{itemize}
 \item \textbf{A diagnostic result (Figures~\ref{fig:perrow},~\ref{fig:emergent}).}
   For an auxiliary multi-token objective sharing the tied output projection, the
-  per-row gradients of the two losses are near-perfectly \emph{aligned in
-  direction} (median cosine $\approx +1$; ${\approx}0.3\%$ of rows opposed,
-  against a $0.42\%$ calibrated control) while the aggregate cosine is $\approx 0$,
-  and this decoupling \emph{emerges during training} from an aligned start. Standard
-  cosine-based conflict diagnostics therefore \emph{misdiagnose} this regime.
-\item \textbf{A norm decomposition of the collapse (Figure~\ref{fig:normdecomp}).}
-  Via an exact identity, we show the aggregate would read $+0.94$/$+0.96$ if
-  gradient magnitude were flat across rows but reads $-0.08$/$-0.28$: the collapse
-  is set by per-row \emph{norm} structure, not by the typical per-row direction.
-  We ship the instrument (\texttt{measure\_norm\_support.py}) that logs per-row
-  norms to complete the support-versus-opposed-minority test in one short pass.
+  per-row gradients of the two losses are \emph{aligned in direction} on the rows
+  that carry a target (active-row median cosine ${\approx}0.53$, ${\approx}3\%$
+  opposed; over the full vocabulary the median is $+1$ because ${\approx}88$--$92\%$
+  of rows are scalar multiples by construction), while the aggregate cosine is
+  $\approx 0$, and this decoupling \emph{emerges during training} from an aligned
+  start. Standard cosine-based conflict diagnostics therefore \emph{misdiagnose}
+  this regime.
+\item \textbf{A norm decomposition of the collapse, and a direct measurement of
+  its cause (Figures~\ref{fig:normdecomp}, \ref{fig:normsupport}).} Via an exact
+  identity, the aggregate would read $+0.94$/$+0.96$ if gradient magnitude were
+  flat across rows but reads $-0.08$/$-0.28$: the collapse is set by per-row
+  \emph{norm} structure, not by the typical per-row direction. Instrumenting the
+  per-row norms directly (\texttt{measure\_norm\_support.py}; $n{=}3$ seeds per
+  optimizer) settles which structure: the two losses load the \emph{same} rows
+  (norm-profile cosine $0.98$), and a high-norm opposed minority carries the
+  majority of the mass (opposed-norm fraction $0.60$ Muon, $0.69$ AdamW). The
+  aggregate is a norm-weighted cancellation, not disjoint support.
 \item \textbf{A calibrated, general characterization
   (Figures~\ref{fig:perlayer},~\ref{fig:tokenfreq}).} The alignment is
-  \textbf{general across the network} and \textbf{survives untying} the head, and
-  rarer tokens align \emph{more}. The next-token degradation is large and
+  \textbf{general across the network} and \textbf{survives untying} the head; the
+  apparent rarer-tokens-align-more effect is a construction artifact that vanishes
+  on active rows. The next-token degradation is large and
   significant ($+0.39$ nats, $p\approx 8\times10^{-5}$) yet co-occurs with aligned
   gradients.
-\item \textbf{Intervention evidence for a support/capacity account
+\item \textbf{Intervention evidence for a norm-weighting/capacity account
   (Figure~\ref{fig:interventions}, Appendix~\ref{app:surgery}).}
   Conflict-targeted surgery does not recover the baseline; stop-gradient makes the
   damage worse; and a capacity-separated auxiliary reduces but does not eliminate
@@ -194,13 +200,18 @@ script:
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/fig0_schematic.pdf}
-\caption{\textbf{Support divergence in one picture.} \emph{Left:} row by row (one
-row per vocabulary token), the CE and MTP gradients point almost the same way, so
-the per-row cosine is $\approx +1$. \emph{Middle:} but each loss deposits its
-gradient \emph{magnitude} on a largely disjoint set of rows. \emph{Right:} the
-per-row cosine correctly reports alignment, while the magnitude-weighted aggregate
-cosine, the standard conflict diagnostic, reads $\approx 0$ and is misinterpreted
-as conflict. The reading on the right is an artifact of measuring the wrong axis.}
+\caption{\textbf{The mechanism in one picture} (schematic; illustrative
+proportions, not plotted data). \emph{Left:} row by row (one
+row per vocabulary token), the CE and MTP gradients point almost the same way for
+$99.7\%$ of rows (per-row cosine $\approx +1$); a tiny high-norm minority (red) is
+opposed. \emph{Middle:} both losses deposit their gradient \emph{magnitude} on the
+\emph{same} rows (norm-profile cosine $\approx 0.98$), and one high-norm row (red)
+carries most of the mass. \emph{Right:} the typical per-row cosine reports
+alignment, while the magnitude-weighted aggregate, the standard conflict
+diagnostic, is dragged negative by the opposed high-norm minority and is
+misinterpreted as conflict. The aggregate is not wrong about the update, but it
+cannot say \emph{where} the interference lives: it is set by per-row norms, not by
+the directions it averages.}
 \label{fig:schematic}
 \end{figure}
 
@@ -213,7 +224,7 @@ as conflict. The reading on the right is an artifact of measuring the wrong axis
 % ---------------------------------------------------------------------------
 \section*{Reproducibility Statement}
 All results are computed from committed result JSONs by \texttt{analysis/stats.py}; the
-six data figures are regenerated from the same JSONs by \texttt{figures/make\_figures.py}
+seven data figures are regenerated from the same JSONs by \texttt{figures/make\_figures.py}
 (the conceptual schematic, Figure~\ref{fig:schematic}, by \texttt{figures/make\_schematic.py}).
 Code, data-loading, pinned dependencies (\texttt{requirements.txt}), and a
 \texttt{README} with exact run commands are released. The optimizer (Muon) is

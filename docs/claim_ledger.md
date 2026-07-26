@@ -35,7 +35,7 @@ direction.
 | A2 | A calibrated control confirms the instrument (an unrelated loss reads ~0) | A3 CE-vs-L1 | per_row_0.3 = **0.42%** (vs 98.38%) |
 | A3 | The aggregate cosine is ≈0 despite per-row alignment (the paradox) | A1 trajectory | global_cos ≈ **−0.08** at step 1000 while per_row_0.3 = 0.98 |
 | A4 | The decoupling **emerges during training** (both start aligned) | A1 21-point trajectory | step 1: global **+0.99**, per_row 0.998 → step 200: global **−0.17**, per_row 0.97 |
-| A5 | Aggregate≈0 forces disjoint support (math + measurement) | logic: per-row cos≈+1 ⇒ cancellation impossible ⇒ magnitude must sit on different rows | (argued; per-row-norm figure is the only *upgrade* that needs a run — mark as future work) |
+| A5 | Aggregate≈0/negative is a norm-weighted cancellation by a high-norm opposed minority (not disjoint support) | measure_norm_support.py, n=3 seeds/optimizer | norm-profile cos = **0.979±0.003** (Muon) / **0.977±0.007** (AdamW) ⇒ same rows loaded; opposed-norm fraction = **0.604±0.026** (Muon) / **0.692±0.011** (AdamW) ⇒ opposed minority carries the mass. Measured, both optimizers. |
 | A6 | Adding shared-head MTP degrades next-token CE in this testbed | Phase B A vs B | A=**3.9851±0.014 (n=5)**, B=**4.3767±0.021 (n=3)**, Δ=**+0.392** |
 | A7 | Detaching the aux from the head (stop-grad) makes it **worse** | Phase B B_sg | B_sg=**4.4927±0.010 (n=3)**, Δ=**+0.508** |
 | A8 | Neither standard nor tuned capacity-separated aux recovers A within noise | Phase B gnce + phase_d (10,9) | std G_nce=**4.0241±0.021 (n=5)**, Δ+0.039; tuned (10,9) n=3 mean=**4.0026±0.016**, Δ+0.018 (>1σ); NextLat=**4.0365**, Δ+0.051 |

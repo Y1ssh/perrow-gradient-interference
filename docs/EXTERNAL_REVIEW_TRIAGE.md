@@ -22,18 +22,22 @@ Identity: `agg = Σ_i a_i b_i c_i / (||G_ce|| ||G_mtp||)` with `a_i,b_i≥0`.
 3. TEN_OUT_OF_TEN.md softened: Fig 6 *partially* addresses the interp ask (proves norm-weighting),
    does NOT separate support-divergence from opposed-minority; that needs the run.
 
-## PART B (do after this, per user) — the reframe + the one run
-B1. **Soften/kill every strict "not cancellation" / "rather than cancellation".** Live spots:
-    main.tex:48 (abstract), discussion.tex:7 and :47-48, results.tex:114 ("no cancellation" reading).
-    Reframe to: "support divergence suppresses the aligned contribution; a small high-norm opposed
-    mass tips the sign negative — both operate, proportion unmeasured."
-B2. **Run `measure_norm_support.py`** on the short diagnostic pass → report `norm_profile_cos` vs the
-    actual aggregate and `opposed_norm_fraction`. This converts the headline from inference to result.
-    (Needs FineWeb download + local RTX 3050; ~1-3 h; or a GPU host.)
-B3. **Replace the Sec-3.3 toy** with a 3-row example where BOTH gradients are nonzero on every row
-    (so per-row cos is defined and =+1) with disjoint magnitude → agg→0⁺, plus a 4th opposed high-norm
-    row to show the sign going negative. (The review is right the current 2-row toy has all-undefined
-    per-row cosines — it shows agg=0 but not "per-row +1 coexisting with agg 0".)
+## PART B STATUS (2026-07-23) — B1/B2/B3 DONE; B2 RESULT INVERTED THE REFRAME
+B2 was run (n=3 seeds per optimizer, both Muon and AdamW). Result: **norm-profile cosine ≈ 0.98**
+(NOT ≈0), **opposed-norm fraction 0.60 (Muon) / 0.69 (AdamW)**. This REFUTES support divergence
+(the losses load the SAME rows) and CONFIRMS cancellation (a high-norm opposed minority carries the
+mass). So B1's anticipated "both operate, proportion unmeasured" reframe was replaced by the stronger,
+measured statement: **norm-weighted cancellation by a high-norm opposed minority; support does not
+diverge.** The whole manuscript mechanism was rewritten accordingly (16 spots across 5 files). See
+docs/RESULT_B2_norm_support.md and Figure 7 (fig:normsupport).
+
+B1. ✅ DONE — every strict "not cancellation" / "rather than cancellation" removed, but reframed to
+    the MEASURED cancellation (not the hedged "both operate"), because B2 settled it.
+B2. ✅ DONE — ran on H100, n=3 per optimizer. norm_profile_cos 0.979/0.977, opposed_norm_fraction
+    0.604/0.692. Converted the headline from inference to a direct result.
+B3. ✅ DONE — Sec-3.3 toy replaced with a 3-aligned-low-norm + 1-opposed-high-norm construction where
+    every per-row cosine is DEFINED (three read +1, one reads −1) and the aggregate goes negative from
+    the one high-norm opposed row. Matches the measured mechanism (b), no support divergence needed.
 B4. **Add the gradient-structure explanation** for alignment (both row-grads live in span{h_t}; rare
     tokens = few contexts = low rank = near-parallel). Turns 3 scattered findings (=+1 spike, rare-token
     ordering, CE-only 94.5%) into one mechanism AND appropriately deflates "alignment is surprising".
@@ -56,3 +60,41 @@ B10. Demote stop-grad to a footnote (confounded); soften "capacity is the lever"
 - Abstract hedge density — partly already consolidated; will revisit in B1.
 - Muon post-transform gradient bug worry — our measurement takes autograd.grad on lm_head BEFORE any
   optimizer transform, so the logged gradient is the raw loss gradient (no Muon orthogonalization). Not a bug.
+
+## SECOND EXTERNAL REVIEW (2026-07-23) — pre-submission, full response
+A second detailed reviewer read the post-flip paper. Verdict: measurement real, scope-honesty
+above average, core point publishable, but two "blocking" items. Each was checked against the
+committed arrays/code before acting (no guessing).
+
+R1. **Active-row denominator** — CORRECT and verified on arrays. Because CE and shared MTP read the
+    SAME logits, a row with no target in the batch has g_mtp = 0.75·g_ce EXACTLY (measured norm ratio
+    among near-parallel rows = 1.3329 ≈ 1/0.75). 75% of rows are parallel by construction (cos>1-1e-6),
+    only ~12% are active. Restricted to active rows the median cosine is 0.54 (not +1.00), 2.8% opposed,
+    86% >0.3. ✅ ADDED to §4.1 + fig1 caption as the honest denominator. CRUCIAL: the mass-weighted
+    mechanism is UNCHANGED (parallel rows carry only ~0.6% of the mass) → norm-profile cos 0.98 and
+    opposed-fraction 0.60/0.69 identical over all rows vs active rows. Sharper, not weaker.
+R2. **Mixture-optimum alternative** — LEGITIMATE, the one true blocker; needs compute. A single head on
+    1/0.5/0.25-weighted targets converges to a weighted mixture and pays KL on next-token; predicts a gap
+    in the right ballpark WITHOUT gradient geometry. ⏳ OPEN → experiments/phase_e_mtp_weight_sweep.py
+    (weight sweep + t+1/t+2/t+3 CE + output entropy). Verdict: gap ∝ weight & entropy↑ → mixture (reframe);
+    gap persists at tiny weight → interference. Either way the cosine-diagnostic point stands.
+R3. **Three stale "support appears to compete" sentences** — ✅ already fixed in the prior line-by-line pass.
+R4. **"Nothing to project away" logic backwards** — ✅ FIXED (5 spots: main/results/appendix/related×2).
+    The opposition is negligible by count (0.3%) but DOMINANT by mass (60-69%); per-row Gram-Schmidt
+    removes exactly it and nothing moves → "mass-dominant yet causally inert" (stronger claim, matches data).
+R5. **Soften "measure the wrong quantity"** — ✅ FIXED → "not wrong about the update, but uninformative
+    about WHERE the interference lives" (abstract + fig0 caption).
+R6. **Exact factorization** — ✅ ADDED + verified: aggregate = ρ_norm × ⟨cos⟩_mass = 0.98×(-0.082) [Muon].
+    Weights sum to exactly the norm-profile cosine. Equation added to §4.2.
+R7. **Decode the ~166 opposed rows** — ⏳ OPTIONAL. Prior check: frequency link only MODERATE
+    (Spearman token_id vs mass = -0.59); table would be honest but must not overclaim "frequent tokens".
+R9. **Statistics** — ✅ FIXED: p≈5.5e-9 → p<1e-4; Welch sign clarified (CE-only minus MTP); MDE added
+    (~0.05 nats, headline is 8× floor, tuned-aux below it); Holm note (4/5 survive, only tuned fails);
+    Muon-vs-AdamW opposed-fraction test added (Welch t=5.4, p=0.015, genuinely optimizer-dependent).
+R10. **Citations** — ✅ ADDED (all verified on arXiv): Kurin 2201.04122, Xin 2209.11379, Gao 1907.12009;
+     Godey "different tensor" precision note added.
+R11. **Define G_nce / NextLat** — ✅ inline definitions added at first mention.
+R13. **Presentation** — ✅ title line-break fixed (no more "Mis-/read"); fig0 caption flagged
+     "schematic; illustrative proportions, not plotted data"; abstract leads with active-row honesty.
+
+Compiles clean: 15 pages, 0 undefined refs, 0 em-dashes, all citations resolve.

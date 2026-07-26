@@ -38,9 +38,10 @@ of two dead attributes.
   **"60-98% of neurons receive genuinely conflicting gradient signals"** with a
   "company survey / 60% of teams miserable" analogy — the exact inversion the
   2026-06-05 correction fixed. New text states the corrected finding: per-row
-  gradients are **aligned** (median cosine ~+1, ~0.3% cos<0); the aggregate ~0
-  reflects **disjoint support**, not cancellation; and cosine-based conflict
-  diagnostics measure the wrong axis here.
+  gradients are **aligned** (median cosine ~+1, ~0.3% cos<0); the aggregate ~0/
+  negative reflects a **norm-weighted cancellation** by a high-norm opposed
+  minority (measured: norm-profile cosine ~0.98, opposed-norm fraction 0.60/0.69),
+  and cosine-based conflict diagnostics measure the wrong quantity here.
 - Marked the returned **`discrepancy`** metric **DIAGNOSTIC-ONLY** in both the
   usage example and the return-dict docstring (it is ill-conditioned as
   `|global_cos| → 0` and is not a reported quantity). The field is retained so

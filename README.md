@@ -10,10 +10,17 @@ interact at a language model's **shared output projection** (the tied
 **Headline finding.** At the shared output head, the per-row gradients of CE and
 MTP are near-perfectly **aligned in direction** (median per-row cosine ≈ +1;
 only ~0.3% of rows have cosine < 0), even though the **aggregate** (flattened)
-cosine reads ≈ 0. Standard cosine-based conflict diagnostics therefore *misread*
-the interaction: the operative axis is gradient **support** (which rows carry
-magnitude), not direction. Adding shared-head MTP still degrades next-token CE
-(+0.39 nats at 124M), but not through gradient cancellation.
+cosine reads ≈ 0 to negative. Instrumenting the per-row gradient **norms**
+directly (n=3 seeds per optimizer) shows why: the two losses load their
+magnitude on the **same** rows (norm-profile cosine ≈ 0.98, so support does
+*not* diverge), yet the majority of the gradient-magnitude mass (≈60% under
+Muon, ≈69% under AdamW) sits on the tiny high-norm **opposed** minority. The
+near-zero aggregate is therefore a **norm-weighted cancellation** by a high-norm
+opposed minority, not a broad directional conflict. Standard cosine-based
+conflict diagnostics *misread* this: the aggregate is set by per-row gradient
+**norms**, not by the directions it averages. Adding shared-head MTP degrades
+next-token CE (+0.39 nats at 124M), and neutralizing the measured opposition
+(gradient surgery) does not repair it.
 
 > **Scope.** All results are on a single **shared tied output head**, GPT-2 at
 > **124M** (primary, n=5 seeds) and **350M** (single illustrative seed),
@@ -68,6 +75,11 @@ python figures/make_schematic.py --out figures                 # regenerates fig
 
 # 5. Surgery / AdamW negatives (Phase C)
 python experiments/phase_c_negatives.py --method gs --optimizer muon --variant b --seed 42
+
+# 6. MTP-weight sweep + mixture-optimum diagnostics (Phase E) — one GPU, ~3.5 h
+#    Rules the "mixture-optimum" alternative in or out; logs t+1/t+2/t+3 CE + entropy.
+bash experiments/run_mtp_sweep.sh          # runs scale 0.0, 1.0, 0.1, 0.01 at seed 42
+python analysis/analyze_mtp_sweep.py       # prints verdict table (no GPU)
 ```
 
 ## Code layout
@@ -81,15 +93,19 @@ measurement/  measure_interference.py       — per-row CE-vs-MTP cosine on the 
                                               divergence from a high-norm opposed minority.
                                               Runs on the short diagnostic pass.
 experiments/  phase_a..d drivers
+              phase_e_mtp_weight_sweep.py — MTP-weight sweep + t+1/t+2/t+3 CE and
+                                            output-entropy logging (mixture-optimum test);
+                                            run_mtp_sweep.sh drives the 4 runs
 baselines/    gs_muon, pcgrad_muon, scatter_muon (gradient surgery)
 analysis/     stats.py       — Welch t-test, Cohen's d, per-row distribution (masks 47 padding rows)
               stats_table.md — regenerated summary table
 figures/      make_figures.py   — regenerates fig1–fig6 (png+pdf+csv) from results/
-              make_schematic.py — regenerates fig0, the conceptual support-divergence
-                                  cartoon (not data-derived; used as paper Fig. 1)
+              make_schematic.py — regenerates fig0, the conceptual mechanism
+                                  schematic (not data-derived; used as paper Fig. 1)
+              analyze_mtp_sweep.py — reads results/phase_e/, prints the sweep verdict
 tests/        test_gnce_equivalence.py — torch-free AST guard: the GNCE 'roll' path is
                                          identical across auxiliary_losses{,_ablation}.py
-paper/        main.tex + sections/ + references.bib + TMLR style; main.pdf (12 pp);
+paper/        main.tex + sections/ + references.bib + TMLR style; main.pdf (15 pp);
               figures/ holds the fig0–fig6 PDFs the manuscript includes. See paper/README.md.
 docs/         ship checklist, readiness audit, code-fix log, bibliography verification,
               peer-review syntheses, external-review triage, claim ledger.
@@ -106,6 +122,7 @@ results/
   phase_c_350m_r4_a/       1 JSON   — 350M variant A (87k steps)
   phase_c_350m_r4/         1 JSON   — 350M variant B (87k steps)
   phase_c_350m/            1 JSON   — SUPERSEDED short 350M run (10.7k steps)
+  phase_e/                 (created by run_mtp_sweep.sh) — MTP-weight sweep results
   phase_d/                20 JSONs  — G_nce ablation grid
 ```
 66 committed result JSONs total. Every headline number in the paper is

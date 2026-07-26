@@ -64,6 +64,15 @@ def measure_norm_support(model, batch, thresholds=(0.1, 0.2, 0.3, 0.5)):
     ce_n = ce_g.norm(dim=1)                                                # (V,)
     mtp_n = mtp_g.norm(dim=1)                                              # (V,)
 
+    # Target-presence boolean (STANDING INVARIANT): a row is "active" iff it appears
+    # as a t+1, t+2, or t+3 target anywhere in the batch. This is the exact, by-construction
+    # active/inactive split — a row with no target has g_mtp = 0.75*g_ce exactly (cos +1),
+    # so classifying by target presence (not a cosine threshold) avoids fp-noise misclassification.
+    tgt = torch.zeros(model.lm_head.weight.shape[0], dtype=torch.bool, device=batch.device)
+    tgt[batch[:, 1:].reshape(-1)] = True   # t+1 targets
+    tgt[batch[:, 2:].reshape(-1)] = True   # t+2 targets
+    tgt[batch[:, 3:].reshape(-1)] = True   # t+3 targets
+
     model.train(was_training)
     # Mask padding rows: real vocab is 50257 but the matrix is padded to 50304.
     # Apply the mask to EVERY per-row quantity and recompute the two summary
@@ -71,6 +80,7 @@ def measure_norm_support(model, batch, thresholds=(0.1, 0.2, 0.3, 0.5)):
     V_real = 50257 if row_cos.numel() >= 50257 else row_cos.numel()
     row_cos_r = row_cos[:V_real]
     ce_n_r, mtp_n_r = ce_n[:V_real], mtp_n[:V_real]
+    active_r = tgt[:V_real]
     support_overlap = F.cosine_similarity(ce_n_r.reshape(1, -1), mtp_n_r.reshape(1, -1)).item()
     mass_r = ce_n_r * mtp_n_r
     opposed_norm_fraction = (mass_r[row_cos_r < 0].sum() / mass_r.sum().clamp(min=1e-12)).item()
@@ -80,6 +90,10 @@ def measure_norm_support(model, batch, thresholds=(0.1, 0.2, 0.3, 0.5)):
         'row_cosines': row_cos_r.detach().cpu().numpy(),
         'ce_row_norms': ce_n_r.detach().cpu().numpy(),
         'mtp_row_norms': mtp_n_r.detach().cpu().numpy(),
+        'active_row': active_r.detach().cpu().numpy(),  # STANDING INVARIANT: exact target-presence boolean
+        'active_fraction': active_r.float().mean().item(),
+        'active_median_cos': row_cos_r[active_r].median().item() if active_r.any() else float('nan'),
+        'active_opposed_fraction': (row_cos_r[active_r] < 0).float().mean().item() if active_r.any() else float('nan'),
         'norm_profile_cos': support_overlap,           # cos(a,b): aggregate IF every row were cos=+1; LOW => support divergence
         'opposed_norm_fraction': opposed_norm_fraction, # share of ||g_ce||*||g_mtp|| mass on cos<0 rows; HIGH => cancellation
         'val_loss': ce_loss.item(),

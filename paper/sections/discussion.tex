@@ -2,54 +2,78 @@
 \label{sec:discussion}
 
 \paragraph{What the measurements establish.} In this regime (a single shared tied output projection, ${\leq}350$M, undertrained) the standard cosine
-conflict diagnostic misreads the CE/MTP interaction. The per-row gradients are
-aligned (median $+1$), the aggregate is $\approx 0$, and the two decouple during
-training in a pattern that points to support divergence rather than cancellation.
-The next-token degradation is large and unambiguous, yet it coincides with
-aligned gradients, so conflict-based remedies have essentially nothing to act on,
-consistent with the surgery baselines in Appendix~\ref{app:surgery}, which
-recover nothing. The lever that helps is capacity separation, though in our runs
-it reduces rather than eliminates the gap.
+conflict diagnostic misreads the CE/MTP interaction. On the rows that carry a
+target the per-row gradients are aligned (active-row median cosine ${\approx}0.53$,
+${\approx}3\%$ opposed; the full-vocabulary median is $+1$ only because
+${\approx}88$--$92\%$ of rows are scalar multiples by construction), the aggregate
+is $\approx 0$ or negative, and the two decouple during training. Instrumenting the
+per-row norms shows the aggregate is set by a high-norm opposed minority
+($\approx0.3\%$ of all rows, carrying $60$--$69\%$ of the mass), not by disjoint
+support: the losses load the same rows (norm-profile cosine $0.98$) but oppose on the few rows that
+dominate the weighted sum. Crucially, the next-token degradation is large and
+unambiguous, yet neutralizing that directional opposition does not remove it: the
+surgery baselines in Appendix~\ref{app:surgery} recover nothing, so the opposed
+minority the cosine detects is not the fixable lever. The lever that helps is
+capacity separation, though in our runs it reduces rather than eliminates the gap.
+
+\paragraph{Two failure modes, one instrument.} The aggregate cosine misleads in
+two opposite directions depending on the optimizer, and the paper's central claim
+is that both are failures of the \emph{same} diagnostic. Under Muon the aggregate
+is ${\approx}{-}0.08$, close enough to zero that a conflict diagnostic reads
+``no interference,'' a \emph{false negative}: the next-token loss degrades by
+$0.39$ nats regardless. Under AdamW the aggregate is ${\approx}{-}0.28$,
+negative enough to trip a conflict flag, but this is a \emph{misleading positive}:
+gradient surgery that projects out exactly this opposition recovers nothing
+(Appendix~\ref{app:surgery}), because the opposition is mass-dominant yet causally
+inert. A practitioner reading only the aggregate would conclude ``safe to add
+MTP'' under Muon and ``apply surgery'' under AdamW, and both conclusions are
+wrong. The instrument does not merely lose power; it points the wrong way, and
+which way depends on an optimizer choice unrelated to whether interference is
+present. This is why the per-row and per-norm decomposition, not a scalar
+threshold on the aggregate, is what the regime requires.
 
 \paragraph{What they do not establish.} We do not show that MTP \emph{as
 practiced} (with separate per-horizon heads) degrades next-token modeling;
 our formulation is a single tied head, and separate-head designs give the
-auxiliary its own capacity precisely so that support cannot compete. We do not
-establish causation between support divergence and the loss increase; we show
-they co-occur and that interventions behave as a support/capacity account
-predicts. And the effect lives in an undertrained, small-batch, ${\leq}350$M
-regime where MTP is already documented to underperform \citep{zuhri2025top}.
+auxiliary its own capacity precisely so that the losses cannot compete on shared
+rows. We do not establish causation between the norm-weighted opposition and the
+loss increase; we show they co-occur and that interventions behave as a
+norm-weighting/capacity account predicts (in particular, surgery that removes the
+opposition does not remove the degradation). And the effect lives in an
+undertrained, small-batch, ${\leq}350$M regime where MTP is already documented to
+underperform \citep{zuhri2025top}.
 
-\paragraph{Future work.} Four experiments would broaden the scope from ``the
+\paragraph{Future work.} Three experiments would broaden the scope from ``the
 diagnostic misreads this regime'' toward a causal, general statement: (1) a
 \textbf{separate-head MTP} variant, to localize whether the degradation is
 intrinsic to head-sharing; (2) \textbf{$n{=}3$ at 350M} plus a 124M CE-only
 per-row baseline, to turn the single-seed scale observation into a measured
-trend; (3) \textbf{matched-seed, single-pass gradient surgery} at $n{=}3$, to
-remove the numerical-drift caveat; and (4) a \textbf{direct per-row-norm
-measurement}, to upgrade support divergence from an inference (forced by aligned
-per-row $+$ zero aggregate) to a measurement. For (4) we have already shown, via
-an exact identity, that the aggregate collapse is driven by per-row norm
-structure rather than by the typical per-row direction (Section~\ref{sec:emergent},
-Figure~\ref{fig:normdecomp}), and we ship the instrument
-(\texttt{measure\_norm\_support.py}) that logs the per-row norms and reports the
-two statistics (norm-profile overlap, opposed-norm fraction) needed to separate
-support divergence from a high-norm opposed minority; it runs on the existing
-short diagnostic pass, so (4) is a single measurement rather than a new training
-campaign.
+trend; and (3) \textbf{matched-seed, single-pass gradient surgery} at $n{=}3$, to
+remove the numerical-drift caveat. A further question, \emph{which} norm
+structure produces the collapse, is settled directly here: instrumenting the per-row norms
+(\texttt{measure\_norm\_support.py}, $n{=}3$ seeds per optimizer) shows the two
+losses load the same rows (norm-profile cosine $0.98$) while a high-norm opposed
+minority carries the majority of the mass (opposed-norm fraction $0.60$/$0.69$),
+so the mechanism is norm-weighted cancellation, not support divergence
+(Section~\ref{sec:emergent}, Figure~\ref{fig:normsupport}).
 
 \section{Conclusion}
 \label{sec:conclusion}
 Cosine similarity between task gradients is the default instrument for detecting
 interference in multi-task and auxiliary-loss training. We showed that at a
 language model's shared, tied output projection this instrument is misleading:
-the per-row CE and MTP gradients are near-perfectly aligned in direction, the
-aggregate cosine is driven to zero by disjoint support rather than by
-cancellation, and the two metrics decouple during training. Adding the shared
-auxiliary degrades next-token loss substantially, but not through the directional
-conflict a cosine diagnostic would report. The operative axis is gradient
-support, not direction, a distinction that explains why conflict-targeted
-surgery does not help here and why capacity separation does. We deliver the result
+the per-row CE and MTP gradients are aligned in direction on the rows that carry a
+target (active-row median cosine ${\approx}0.53$; the full-vocabulary median is
+$+1$ because most rows are scalar multiples by construction), the aggregate cosine
+is driven negative by a high-norm opposed minority ($\approx0.3\%$ of rows carrying
+most of the mass) rather than by a broad directional conflict, and the two metrics
+decouple during training.
+Adding the shared auxiliary degrades next-token loss substantially, and
+neutralizing the measured opposition does not repair it, so the degradation is
+not the directional conflict a cosine diagnostic would report. The aggregate is
+set by per-row gradient norms, not by the per-row directions the cosine averages,
+a distinction that explains why conflict-targeted surgery does not help here and
+why capacity separation does. We deliver the result
 on a fully reproducible testbed with a committed statistics script, and we are
 explicit about the shared-head, small-scale scope and the experiments that would
 extend it.

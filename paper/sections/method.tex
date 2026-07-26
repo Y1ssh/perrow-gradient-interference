@@ -24,7 +24,13 @@ vocabulary token $i$. For a validation batch we compute the gradient each loss
 deposits on this matrix and, for \textbf{each row}, the cosine between the CE and
 MTP row-gradients. We summarize the resulting distribution of $V$ per-row cosines
 by its median, the fraction with $\cos < 0$ (directional opposition), and the
-fraction with $|\cos| > 0.3$ (appreciable alignment). We contrast these per-row
+fraction with $|\cos| > 0.3$ (appreciable alignment; the $0.3$ threshold is a
+conventional ``appreciable correlation'' cut, and the qualitative picture is
+insensitive to it since the active-row cosines cluster around $0.5$, well above
+$0.3$, while the parallel majority sits at $+1$). Each gradient measurement uses a
+single held-out batch of $16$ sequences $\times$ $1024$ tokens ($16{,}384$ tokens);
+Section~\ref{sec:aligned} reports how the active-row fraction varies with batch
+count. We contrast these per-row
 statistics with the \textbf{aggregate} cosine (the cosine between the two
 \emph{flattened} matrix gradients), which is the quantity conventional conflict
 diagnostics use. The 47 padding rows ($50{,}304 - 50{,}257$) are masked from all
@@ -45,40 +51,32 @@ and treat single-seed/single-run measurements as such.
 \label{sec:dirsupport}
 The distinction the paper turns on: the \textbf{aggregate} cosine measures whether
 the summed gradient vectors point the same way; the \textbf{per-row} distribution
-measures whether they agree row by row. These can disagree. If two losses each
-place their gradient magnitude on a \emph{disjoint} set of rows, then on the rows
-where either is active the other is $\approx 0$, the per-row cosines agree where
-they overlap, and the flattened aggregate is driven toward orthogonality by the
-non-overlap, \emph{without any directional opposition}. We call this
-\textbf{support divergence}, and it is invisible to a cosine conflict diagnostic
-by construction.
+measures whether they agree row by row. These can disagree, and the reason is
+that the aggregate cosine is \emph{magnitude-weighted} (it is the cosine of the
+summed, flattened gradients) whereas the per-row median and the $\cos<0$ fraction
+are \emph{unweighted} over rows. A near-zero or negative aggregate with a per-row
+median of $+1$ is therefore consistent with (a) \emph{support divergence}, where
+the two losses place their magnitude on disjoint rows, so the aggregate drifts
+toward orthogonality without any directional opposition; or with (b) a small
+number of \emph{high-norm opposed rows} that dominate the weighted sum while the
+many low-norm rows align. The $0.33\%$ opposed-by-count figure does not bound the
+opposed \emph{mass}, so counting rows cannot distinguish the two. Separating them
+requires the per-row gradient \emph{norms}; we measure them directly
+(Section~\ref{sec:emergent}, Figure~\ref{fig:normsupport}) and find (b).
 
 \begin{tcolorbox}[colback=gray!5,colframe=gray!45,boxrule=0.4pt,left=4pt,right=4pt,
   top=3pt,bottom=3pt,fontupper=\small]
-\textbf{A two-row illustration.} Take a weight matrix with two rows and let the
-CE and MTP gradients be
-$g^{\text{ce}}=\big[(1,0),\,(0,0)\big]$ and
-$g^{\text{mtp}}=\big[(0,0),\,(1,0)\big]$: each loss loads all its magnitude on a
-\emph{different} row. The per-row cosine is undefined on the zero rows and
-otherwise never negative, so nothing looks opposed. Yet the flattened vectors
-$(1,0,0,0)$ and $(0,0,1,0)$ are orthogonal: the \textbf{aggregate cosine is $0$}.
-No row's gradients point in opposing directions; the aggregate reads
-``conflict'' purely because the two losses occupy disjoint rows. Support
-divergence is this effect at scale.
+\textbf{A four-row illustration.} Take a weight matrix with four rows. Let three
+low-norm rows be aligned, $g^{\text{ce}}_i=g^{\text{mtp}}_i=(\epsilon,0)$ for
+$i=1,2,3$ with small $\epsilon$, and let one high-norm row be \emph{opposed},
+$g^{\text{ce}}_4=(1,0)$ and $g^{\text{mtp}}_4=(-1,0)$. Every per-row cosine is
+defined: three read $+1$ and one reads $-1$, so the median and the $\cos<0$
+fraction ($1/4$) both say ``mostly aligned.'' Yet the flattened vectors are
+dominated by row $4$, so the \textbf{aggregate cosine is negative}
+($\approx -1$ as $\epsilon\to0$). No support divergence is needed: the losses
+occupy the \emph{same} rows, but one high-norm row is opposed and it sets the
+sign. This is mechanism (b), and it is what we measure at scale.
 \end{tcolorbox}
-
-One caveat bounds how far we can push this inference. The aggregate cosine is
-\emph{magnitude-weighted} (it is the cosine of the summed, flattened gradients),
-whereas the per-row median and the $\cos<0$ fraction are \emph{unweighted} over
-rows. A near-zero aggregate with a per-row median of $+1$ is therefore consistent
-with (a) disjoint magnitude support across rows, but also with (b) a small number
-of high-norm rows being off-axis while the many low-norm rows align, i.e.\ the
-$0.33\%$ opposed-by-count figure does not bound the opposed \emph{mass}. Our
-committed measurements store per-row cosines but not per-row gradient norms, so we
-cannot separate (a) from (b) here; we report support divergence as the reading
-most consistent with the full pattern (including the emergent decoupling and the
-untied-head control) and flag the direct per-row-norm measurement that would
-settle it as future work (Section~\ref{sec:discussion}).
 
 \subsection{Calibration}
 To confirm the instrument is not trivially reporting alignment, we run a control

@@ -1,49 +1,49 @@
-# Part B item B2 — measure_norm_support result (the deciding run)
+# Part B item B2 — measure_norm_support: the deciding run (n=3 per optimizer, CONFIRMED)
 
-## Measurement (user ran on H100; seed 42, Muon, 124M, variant B, step 1000)
-    global_cos (aggregate):     -0.1634
-    per_row |cos|>0.3:           98.6%
-    norm_profile_cos:            0.9790
-    opposed_norm_fraction:       0.5744
-    val_loss (pure CE):          5.498
-    (committed a1 step-1000 global_cos was -0.082; this fresh run -0.163 — same sign,
-     ~2x magnitude, normal single-run variation)
+## Measurement (user ran on H100; variant B, 124M, step 1000; seeds 42/123/456 each optimizer)
 
-## Verdict: SUPPORT DIVERGENCE REFUTED; CANCELLATION CONFIRMED (Muon, n=1)
-Instrument's own guide:
-  norm_profile_cos near 0 + opposed_norm_fraction small => SUPPORT DIVERGENCE
-  norm_profile_cos >> aggregate OR opposed_norm_fraction large => CANCELLATION
-Measured: norm_profile_cos = 0.979 (NOT near 0 => support is ~fully OVERLAPPING, not disjoint),
-          norm_profile_cos - aggregate = 1.142 cosine units of collapse from opposition,
-          opposed_norm_fraction = 0.574 (majority of ||g_ce||*||g_mtp|| mass on cos<0 rows).
-=> The near-zero/negative aggregate is driven by a HIGH-NORM OPPOSED MINORITY (cancellation),
-   NOT by disjoint gradient support. This is the external reviewer's "branch 2", decisively.
+| Optimizer | n | norm_profile_cos | opposed_norm_fraction | global_cos (aggregate) | per-row \|cos\|>0.3 |
+|---|---|---|---|---|---|
+| Muon  | 3 | 0.979 ± 0.003 | 0.604 ± 0.026 | -0.163 ± 0.030 | 98.3% |
+| AdamW | 3 | 0.977 ± 0.007 | 0.692 ± 0.011 | -0.317 ± 0.020 | 98.6% |
 
-## Consequences for the manuscript
-DIES:
-  - "Support divergence" as THE mechanism (refuted: 0.98, not ~0).
-  - Abstract/conclusion "not the cancellation of opposing per-row gradients" (now measured false).
-  - Fig 1 schematic (draws CE/MTP magnitude on DISJOINT rows — the opposite of measured).
-SURVIVES (honest reframe):
-  - Per-row alignment across the lexical majority (median +1, ~99.7% of rows by COUNT).
-  - Per-row vs aggregate DECOUPLING is real; flattened cosine STILL misreads — but because a
-    high-norm opposed MINORITY (frequent tokens) dominates the aggregate, not support divergence.
-  - MTP degrades CE; surgery recovers nothing => the detected opposition is a red herring.
-  - Fig 6 (norm decomposition) + Fig 2 (emergence) survive; Fig 6 now BETTER supported.
-REFRAMED THESIS (honest):
-  "CE/MTP per-row gradients are aligned across the lexical majority, but a high-norm opposed
-   minority concentrated in frequent tokens drags the aggregate negative. The flattened cosine
-   cannot resolve this structure, and the gradient surgery it triggers does not address the
-   actual next-token degradation."
+Per-run (seed 42/123/456):
+  Muon  npc = 0.978 / 0.976 / 0.982 ; onf = 0.607 / 0.628 / 0.577 ; agg = -0.193 / -0.163 / -0.133
+  AdamW npc = 0.985 / 0.971 / 0.974 ; onf = 0.691 / 0.703 / 0.681 ; agg = -0.319 / -0.335 / -0.296
 
-## Open robustness question (why n=1 is not yet enough to publish the NEW claim)
-  - Support divergence is refuted even at n=1 (0.98 is nowhere near 0 — robust to noise).
-  - But opposed_norm_fraction (0.574) and global_cos (-0.163 vs committed -0.082) show run-to-run
-    variation. To publish the CANCELLATION mechanism confidently, confirm across seeds 42/123/456
-    (Muon) and run the AdamW branch (aggregate ~-0.28; reviewer expects even stronger cancellation).
-  - Each run is ~2.5 min on the H100. 3 Muon seeds + 1-3 AdamW seeds = ~15 min total.
+## Verdict: SUPPORT DIVERGENCE REFUTED; CANCELLATION CONFIRMED (both optimizers, n=3)
+Instrument guide: norm_profile_cos near 0 + opposed small => support divergence;
+                  norm_profile_cos >> aggregate OR opposed large => cancellation.
+Measured: norm_profile_cos ~ 0.98 (NOT ~0) => CE and MTP load the SAME rows (support OVERLAPS).
+          opposed_norm_fraction 0.60 (Muon) / 0.69 (AdamW) => MAJORITY of the
+          ||g_ce||*||g_mtp|| mass sits on rows where the two gradients OPPOSE.
+=> The near-zero/negative aggregate is driven by a HIGH-NORM OPPOSED MINORITY of rows
+   (cancellation), NOT by disjoint gradient support. Tight error bars; robust.
+   AdamW cancels HARDER than Muon (onf 0.69 vs 0.60; aggregate -0.32 vs -0.16):
+   optimizer-dependent in MAGNITUDE, identical in MECHANISM. Matches the external
+   reviewer's branch-2 prediction, now measured across seeds AND both optimizers.
 
-## Title note
-  "Aligned but Apart": "Aligned" (per-row +1) still holds. "Apart" originally meant "apart in
-  support" — now false. "Apart" can be reinterpreted as "a high-norm minority pulls apart the
-  aggregate", or the title may need a tweak. Flag for the rewrite.
+## Consequence: the paper's mechanism flips. "Support divergence" is retired.
+DIES (must be rewritten): abstract "not the cancellation"; intro "support diverges";
+  method sec:dirsupport "support divergence"; results sec on support divergence;
+  discussion "points to support divergence rather than cancellation"; Fig 1 schematic
+  (drew DISJOINT support — the opposite of measured); the "different output rows" claim.
+SURVIVES (honest, still strong):
+  - Per-row alignment across the lexical majority (median +1, ~98% of rows |cos|>0.3).
+  - Per-row vs aggregate DECOUPLING is real; the flattened cosine STILL misreads the
+    interaction — but because a high-norm opposed MINORITY (frequent tokens) dominates
+    the aggregate, NOT because support diverges.
+  - Fig 6 (norm decomposition) is now BETTER supported: the collapse is set by per-row
+    NORM structure, and the norm-profile measurement pins the specific channel.
+  - Surgery recovers nothing => the detected opposition is not the fixable lever.
+REFRAMED THESIS:
+  "CE and MTP per-row gradients are aligned in direction across the lexical majority, yet
+   the aggregate cosine reads near zero / negative because a high-norm opposed minority,
+   concentrated in frequent tokens, dominates the flattened sum. The aggregate cosine is
+   a lossy summary that a conflict diagnostic misreads as no-interference; the real
+   interference is a norm-weighted opposition it cannot localize, and the gradient surgery
+   it triggers does not address the actual next-token degradation."
+
+## Evidence artifact
+  fig7_norm_support.pdf — n=3 both optimizers: norm_profile_cos ~1 vs negative aggregate (Panel A),
+  opposed_norm_fraction > 0.5 (Panel B). analysis/norm_support_table.md, norm_support_summary.json.
