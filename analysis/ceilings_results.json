@@ -1,0 +1,43 @@
+{
+  "control_ce_l1": {
+    "active_fraction": 0.09101219475269318,
+    "active_median_cos": -0.029110660776495934,
+    "active_opposed_fraction": 0.6375163793563843,
+    "active_frac_above_0.3": 0.010275470092892647,
+    "full_median_cos": -0.23959065973758698,
+    "full_frac_above_0.3": 0.3619794249534607,
+    "global_cos": -0.010501482523977757
+  },
+  "ceiling_ce_vs_ce_ceonly": {
+    "active_fraction": 0.09015659242868423,
+    "active_median_cos": -0.23647716641426086,
+    "active_opposed_fraction": 0.8161553740501404,
+    "active_frac_above_0.3": 0.4140366315841675,
+    "full_median_cos": 0.7050607204437256,
+    "full_frac_above_0.3": 0.9332829117774963,
+    "active_criterion": "target_presence_t1t2t3_either_half"
+  },
+  "ceiling_ce_vs_ce_mtptrained": {
+    "active_fraction": 0.09015659242868423,
+    "active_median_cos": -0.23125126957893372,
+    "active_opposed_fraction": 0.8238799571990967,
+    "active_frac_above_0.3": 0.41315382719039917,
+    "full_median_cos": 0.7249823808670044,
+    "full_frac_above_0.3": 0.9120321273803711,
+    "active_criterion": "target_presence_t1t2t3_either_half"
+  },
+  "robustness_batches": [
+    {
+      "n_batches": 1,
+      "active_fraction": 0.08920150250196457,
+      "active_median_cos": 0.5411336421966553,
+      "active_opposed_fraction": 0.030113762244582176
+    },
+    {
+      "n_batches": 2,
+      "active_fraction": 0.14473605155944824,
+      "active_median_cos": 0.5391333103179932,
+      "active_opposed_fraction": 0.031207039952278137
+    }
+  ]
+}

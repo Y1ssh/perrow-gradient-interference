@@ -1,0 +1,40 @@
+Device: cuda
+  GPT2 initialized (124M params):
+    Total params:   124,354,560  (124.4M)
+    Muon params:     84,934,656  (84.9M)  [68%  Q/K/V/O + MLP per layer]
+    Adam params:     39,419,904  (39.4M)  [32%  wte/wpe/lm_head]
+CE-only checkpoint: final_val_loss=3.994140625
+  k= 256 offset3=p3eqp2  half=0 coverage=0.836 KL(1)=0.3420  KL(0.5)=0.1841  KL(0.25)=0.0915
+  k= 256 offset3=p3eqp2  half=1 coverage=0.820 KL(1)=0.3374  KL(0.5)=0.1816  KL(0.25)=0.0902
+  k= 256 offset3=drop    half=0 coverage=0.829 KL(1)=0.2416  KL(0.5)=0.1240  KL(0.25)=0.0595
+  k= 256 offset3=drop    half=1 coverage=0.821 KL(1)=0.2359  KL(0.5)=0.1206  KL(0.25)=0.0576
+  k=1024 offset3=p3eqp2  half=0 coverage=0.893 KL(1)=0.3379  KL(0.5)=0.1817  KL(0.25)=0.0902
+  k=1024 offset3=p3eqp2  half=1 coverage=0.880 KL(1)=0.3334  KL(0.5)=0.1793  KL(0.25)=0.0889
+  k=1024 offset3=drop    half=0 coverage=0.887 KL(1)=0.2387  KL(0.5)=0.1224  KL(0.25)=0.0586
+  k=1024 offset3=drop    half=1 coverage=0.881 KL(1)=0.2327  KL(0.5)=0.1189  KL(0.25)=0.0567
+  k=2048 offset3=p3eqp2  half=0 coverage=0.915 KL(1)=0.3363  KL(0.5)=0.1809  KL(0.25)=0.0897
+  k=2048 offset3=p3eqp2  half=1 coverage=0.905 KL(1)=0.3319  KL(0.5)=0.1784  KL(0.25)=0.0885
+  k=2048 offset3=drop    half=0 coverage=0.910 KL(1)=0.2377  KL(0.5)=0.1218  KL(0.25)=0.0583
+  k=2048 offset3=drop    half=1 coverage=0.905 KL(1)=0.2316  KL(0.5)=0.1182  KL(0.25)=0.0563
+
+T1 (k=2048): predicted KL(s=1) band [0.232, 0.336]  observed gap 0.371  -> ABOVE band
+    (gap noise sd ~= 0.025; miss above band top = +0.035 = 1.4 sd)
+
+Pointwise (highest-k band vs observed sweep gap):
+  s=0.25: band [0.056,0.090]  obs 0.091  miss +0.002 (0.1 sd)
+  s=0.5: band [0.118,0.181]  obs 0.183  miss +0.002 (0.1 sd)
+  s=1.0: band [0.232,0.336]  obs 0.371  miss +0.035 (1.4 sd)
+
+Coverage->KL(s=1) by k (p3eqp2, half=0), for plateau/escalation decision:
+  k=  256: coverage=0.836  KL(s=1)=0.3420
+  k= 1024: coverage=0.893  KL(s=1)=0.3379
+  k= 2048: coverage=0.915  KL(s=1)=0.3363
+  GPT2 initialized (124M params):
+    Total params:   124,354,560  (124.4M)
+    Muon params:     84,934,656  (84.9M)  [68%  Q/K/V/O + MLP per layer]
+    Adam params:     39,419,904  (39.4M)  [32%  wte/wpe/lm_head]
+
+T2 entropy: CE-only 4.383 vs shared-MTP 5.639 (observed Δ+1.256; soft-label q* predicts Δ+0.950, truncation-biased low)
+T3 future CE: shared-MTP better at t+2 by +2.913, t+3 by +2.566 (mixture predicts shared-MTP BETTER at t+2/t+3)
+
+Saved /root/perrow-gradient-interference/analysis/kl_scan_results.json
