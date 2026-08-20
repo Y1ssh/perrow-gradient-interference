@@ -6,7 +6,7 @@ Code and committed results for the paper studying how a next-token cross-entropy
 auxiliary multi-token-prediction (MTP) loss interact at a language model's shared output projection
 (the tied `lm_head`).
 
-📄 **Paper:** [`paper/main.pdf`](paper/main.pdf) — preprint, version 1, 20 August 2026, 32 pp.
+Ã°Å¸â€œâ€ž **Paper:** [`paper/main.pdf`](paper/main.pdf) Ã¢â‚¬â€ preprint, version 1, 20 August 2026, 32 pp.
 *Not peer reviewed.*
 
 <!-- DOI BADGE GOES HERE AFTER ZENODO UPLOAD -->
@@ -16,29 +16,29 @@ auxiliary multi-token-prediction (MTP) loss interact at a language model's share
 ## Headline finding
 
 At the shared output head, the per-row gradients of CE and MTP are **aligned in direction**. On the
-≈8% of vocabulary rows that receive a target — the rest are scalar multiples with cosine +1 by
-construction, so they carry no information — the median per-row cosine is ≈0.53 and only ≈3–4% are
+Ã¢â€°Ë†8% of vocabulary rows that receive a target Ã¢â‚¬â€ the rest are scalar multiples with cosine +1 by
+construction, so they carry no information Ã¢â‚¬â€ the median per-row cosine is Ã¢â€°Ë†0.53 and only Ã¢â€°Ë†3Ã¢â‚¬â€œ4% are
 opposed. Yet the aggregate (flattened) cosine ranges from near 0 (Muon) to clearly negative
-(−0.28, AdamW). What comes apart is the two readings, not the two losses' supports.
+(Ã¢Ë†â€™0.28, AdamW). What comes apart is the two readings, not the two losses' supports.
 
 Instrumenting the per-row gradient norms directly (three seeds, both optimizers) shows why: both
 losses load their magnitude on the **same rows** (norm-profile cosine 0.98, so support does not
-diverge), while 60–69% of that mass sits on a tiny **opposed minority** — ≈0.3% of rows, the most
+diverge), while 60Ã¢â‚¬â€œ69% of that mass sits on a tiny **opposed minority** Ã¢â‚¬â€ Ã¢â€°Ë†0.3% of rows, the most
 frequent function words and punctuation. The near-zero aggregate is a norm-weighted cancellation,
 not disjoint support and not a broad directional conflict.
 
-Adding shared-head MTP degrades next-token CE by **+0.39 nats at 124M** (p ≈ 8×10⁻⁵), and
+Adding shared-head MTP degrades next-token CE by **+0.39 nats at 124M** (p Ã¢â€°Ë† 8Ãƒâ€”10Ã¢ÂÂ»Ã¢ÂÂµ), and
 neutralizing the measured opposition (gradient surgery) does not repair it. An exact rewrite shows
 the shared-head objective is cross-entropy toward a next-and-future-token **mixture**, and a
-zero-parameter estimate of the implied KL cost reproduces 62–91% of the matched within-sweep gap
-across estimator variants — making the **shifted optimum**, rather than gradient conflict, the
+zero-parameter estimate of the implied KL cost reproduces 62Ã¢â‚¬â€œ91% of the matched within-sweep gap
+across estimator variants Ã¢â‚¬â€ making the **shifted optimum**, rather than gradient conflict, the
 leading account of the degradation.
 
 ## Scope
 
 All results are on a **single shared tied output head**, GPT-2 at 124M (primary) and 350M-class
-(single illustrative seed), undertrained (≈4.0 tokens/parameter), batch = 16,384 tokens/step for
-30,517 steps. See "Scope & caveats" below and the paper's Limitations section (§6).
+(single illustrative seed), undertrained (Ã¢â€°Ë†4.0 tokens/parameter), batch = 16,384 tokens/step for
+30,517 steps. See "Scope & caveats" below and the paper's Limitations section (Ã‚Â§6).
 
 | Condition | n | Seeds |
 |---|---|---|
@@ -62,7 +62,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Muon has no PyPI version — it is pinned to commit `056a3c5869cf` in `requirements.txt` for
+Muon has no PyPI version Ã¢â‚¬â€ it is pinned to commit `056a3c5869cf` in `requirements.txt` for
 reproducibility (the bare git URL installs HEAD, which may drift).
 
 ## Data
@@ -79,15 +79,15 @@ recorded in each result JSON (`total_tokens`, `unique_train_tokens`):
 
 Train/val splits are disjoint. Phase B draws from the first 500M tokens of the stream with the
 final 20M held out (`train[:480M]`, `val[480M:500M]`); the 350M runs hold out the **same**
-480M–500M validation slice.
+480MÃ¢â‚¬â€œ500M validation slice.
 
 ## Reproduce
 
 ```bash
 # 1. Per-row measurements (paper Figures 2, 3, 5, 6, 7, 10)
-python experiments/phase_a_measurements.py            # A1 Muon, A2 AdamW, A3 control, A4 untied
+python experiments/phase_a_measurements.py            # A1 Muon, A2 AdamW, A3 CE-vs-L1 control, A4 untied head, A5 matched-loss (CE-vs-CE)
 
-# 2. Core intervention comparison (paper Figure 9)  — one run at a time, crash-safe
+# 2. Core intervention comparison (paper Figure 9)  Ã¢â‚¬â€ one run at a time, crash-safe
 #    NOTE: n=5 for a and gnce; n=3 (seeds 42 123 456) for b, b_sg, nextlat.
 for s in 42 123 456 789 1337; do
   for v in a gnce; do python experiments/phase_b_comparison.py --variant $v --seed $s; done
@@ -99,7 +99,7 @@ done
 # 3. G_nce hyperparameter ablations (Phase D)
 python experiments/phase_d_ablations.py --layers 10 9 --seed 42 --steps 30517
 
-# 4. Statistics + figures (from committed JSONs — no GPU needed)
+# 4. Statistics + figures (from committed JSONs Ã¢â‚¬â€ no GPU needed)
 python analysis/stats.py    --results results --out analysis   # paired + Welch t, per-row stats
 #   Emits the paper's PRIMARY test -- the paired t over the seeds each pair of
 #   conditions shares -- as paired_t/paired_p/paired_seeds under A_vs_variant, plus
@@ -112,18 +112,18 @@ python figures/make_schematic.py --out figures                 # regenerates fig
 # 5. Surgery / AdamW negatives (Phase C)
 python experiments/phase_c_negatives.py --method gs --optimizer muon --variant b --seed 42
 
-# 6. MTP-weight sweep + mixture-optimum diagnostics (Phase E) — one GPU, ~3.5 h
+# 6. MTP-weight sweep + mixture-optimum diagnostics (Phase E) Ã¢â‚¬â€ one GPU, ~3.5 h
 #    Rules the "mixture-optimum" alternative in or out; logs t+1/t+2/t+3 CE + entropy.
 bash experiments/run_mtp_sweep.sh          # runs scale 0.0, 1.0, 0.25, 0.5 at seed 42
 python analysis/analyze_mtp_sweep.py       # prints verdict table (no GPU)
 
-# 7. Claim gate — recomputes every printed number from the committed JSONs
+# 7. Claim gate Ã¢â‚¬â€ recomputes every printed number from the committed JSONs
 python tests/check_paper_claims.py --repo .        # exit 0 iff every check passes
 ```
 
 ## Figure mapping
 
-⚠️ **Filenames in `figures/` use the project's internal numbering, which is NOT the paper's
+Ã¢Å¡Â Ã¯Â¸Â **Filenames in `figures/` use the project's internal numbering, which is NOT the paper's
 figure numbering.** Use this table:
 
 | File in `figures/` | Paper figure | Content |
@@ -146,30 +146,30 @@ Each is emitted as `.png` + `.pdf` + `.csv` by `figures/make_figures.py`.
 ```
 model/        gpt2.py, gpt2_medium.py, auxiliary_losses.py (+ _ablation)
 
-measurement/  measure_interference.py       — per-row CE-vs-MTP cosine on the head
-              measure_norm_support.py       — also logs per-row NORMS and returns
+measurement/  measure_interference.py       Ã¢â‚¬â€ per-row CE-vs-MTP cosine on the head
+              measure_norm_support.py       Ã¢â‚¬â€ also logs per-row NORMS and returns
                                               norm_profile_cos + opposed_norm_fraction,
                                               the two statistics that separate support
                                               divergence from a high-norm opposed minority.
                                               Runs on the short diagnostic pass.
 
 experiments/  phase_a..d drivers
-              phase_e_mtp_weight_sweep.py — MTP-weight sweep + t+1/t+2/t+3 CE and
+              phase_e_mtp_weight_sweep.py Ã¢â‚¬â€ MTP-weight sweep + t+1/t+2/t+3 CE and
                                             output-entropy logging (mixture-optimum test);
                                             run_mtp_sweep.sh drives the 4 runs
 
 baselines/    gs_muon, pcgrad_muon, scatter_muon (gradient surgery)
 
-analysis/     analyze_mtp_sweep.py — reads results/phase_e/, prints the sweep verdict
-              stats.py       — paired + Welch t-test, Cohen's d, per-row distribution
+analysis/     analyze_mtp_sweep.py Ã¢â‚¬â€ reads results/phase_e/, prints the sweep verdict
+              stats.py       Ã¢â‚¬â€ paired + Welch t-test, Cohen's d, per-row distribution
                                (masks 47 padding rows)
-              stats_table.md — regenerated summary table
+              stats_table.md Ã¢â‚¬â€ regenerated summary table
 
-figures/      make_figures.py   — regenerates the 9 data figures (png+pdf+csv) from results/
-              make_schematic.py — regenerates fig0, the conceptual mechanism
+figures/      make_figures.py   Ã¢â‚¬â€ regenerates the 9 data figures (png+pdf+csv) from results/
+              make_schematic.py Ã¢â‚¬â€ regenerates fig0, the conceptual mechanism
                                   schematic (not data-derived; used as paper Fig. 1)
 
-tests/        check_paper_claims.py     — CLAIM GATE. Recomputes every value the paper
+tests/        check_paper_claims.py     Ã¢â‚¬â€ CLAIM GATE. Recomputes every value the paper
                                           prints for an owned quantity from the committed
                                           JSONs and compares at printed precision. No
                                           literal expected values live in the file; they
@@ -177,7 +177,7 @@ tests/        check_paper_claims.py     — CLAIM GATE. Recomputes every value t
                                           do not reappear, that cross-references resolve,
                                           and that a number owned by one layer is not
                                           restated in another. Exit 0 iff all pass.
-              test_gnce_equivalence.py  — torch-free AST guard: the GNCE 'roll' path is
+              test_gnce_equivalence.py  Ã¢â‚¬â€ torch-free AST guard: the GNCE 'roll' path is
                                           identical across auxiliary_losses{,_ablation}.py
 
 paper/        sections/ + figures/ + references.bib, stored once and shared; the
@@ -195,15 +195,15 @@ docs/         ship checklist, readiness audit, code-fix log, bibliography verifi
 
 ```
 results/
-  phase_a/                 5 JSONs  — per-row measurement
-  phase_b/                19 JSONs  — 124M A/B/B_sg/G_nce/NextLat × seeds
-  phase_b_50M_repeated/    9 JSONs  — 50M-token robustness repeat
-  phase_c/                10 JSONs  — gradient surgery + AdamW
-  phase_c_350m_r4_a/       1 JSON   — 350M variant A (87k steps)
-  phase_c_350m_r4/         1 JSON   — 350M variant B (87k steps)
-  phase_c_350m/            1 JSON   — SUPERSEDED short 350M run (10.7k steps)
-  phase_e/                 4 JSONs  — MTP-weight sweep (created by run_mtp_sweep.sh)
-  phase_d/                20 JSONs  — G_nce ablation grid
+  phase_a/                 5 JSONs  Ã¢â‚¬â€ per-row measurement
+  phase_b/                19 JSONs  Ã¢â‚¬â€ 124M A/B/B_sg/G_nce/NextLat Ãƒâ€” seeds
+  phase_b_50M_repeated/    9 JSONs  Ã¢â‚¬â€ 50M-token robustness repeat
+  phase_c/                10 JSONs  Ã¢â‚¬â€ gradient surgery + AdamW
+  phase_c_350m_r4_a/       1 JSON   Ã¢â‚¬â€ 350M variant A (87k steps)
+  phase_c_350m_r4/         1 JSON   Ã¢â‚¬â€ 350M variant B (87k steps)
+  phase_c_350m/            1 JSON   Ã¢â‚¬â€ SUPERSEDED short 350M run (10.7k steps)
+  phase_e/                 4 JSONs  Ã¢â‚¬â€ MTP-weight sweep (created by run_mtp_sweep.sh)
+  phase_d/                20 JSONs  Ã¢â‚¬â€ G_nce ablation grid
 ```
 
 76 committed result JSONs total (6 norm_support, 5 phase_a, 19 phase_b, 9 phase_b_50M_repeated,
@@ -211,37 +211,39 @@ results/
 recomputed from these by `analysis/stats.py`, and verified by `tests/check_paper_claims.py`.
 
 The paper's Reproducibility Statement reports wall-clock over **74 committed runs**
-(196,501 s ≈ 54.6 H100-hours); that count is of timed training/measurement runs and is not
-the same as the JSON file count above.
+(196,501 s Ã¢â€°Ë† 54.6 H100-hours). That is 74 of these 76 JSONs: the two carrying no timing are `phase_a/a3_control.json`
+(the CE-vs-L1 control) and `phase_a/a5_matched_loss.json` (the CE-vs-CE matched-loss control),
+both measurement passes over an existing checkpoint rather than training runs. Summing the timed
+field across the other 74 reproduces 196,501 s exactly.
 
 ## Compute
 
 Every training and measurement run reported in the paper was performed on a **single rented
 NVIDIA H100**, booked through the Prime Intellect compute exchange on hardware operated by Verda
 (DataCrunch). Recorded wall-clock across the 74 committed runs totals 196,501 seconds
-(≈54.6 H100-hours), excluding exploratory and failed attempts, which were not committed.
+(Ã¢â€°Ë†54.6 H100-hours), excluding exploratory and failed attempts, which were not committed.
 
 ## Scope & caveats (read before citing)
 
 - **Shared tied output head only.** This is *not* separate-head MTP as in Gloeckle et al. 2024 /
-  DeepSeek-V3 — those use independent per-horizon heads feeding a shared unembedding. Our "MTP"
+  DeepSeek-V3 Ã¢â‚¬â€ those use independent per-horizon heads feeding a shared unembedding. Our "MTP"
   supervises one tied head for t+1/t+2/t+3 jointly. The separate-head variant is identified in the
   paper as the primary future experiment.
-- **350M is a single seed** — treated as illustrative, not a scale law.
+- **350M is a single seed** Ã¢â‚¬â€ treated as illustrative, not a scale law.
 - **Surgery baselines (Phase C) are single-seed** and use two backward passes under bf16 (vs the
-  fused single pass in Phase B); the ~0.02–0.04 nat numerical drift is comparable to the surgery
+  fused single pass in Phase B); the ~0.02Ã¢â‚¬â€œ0.04 nat numerical drift is comparable to the surgery
   effect. The paper reads these as consistent-with rather than as evidence.
 - **Muon vs AdamW in Phase A differ in LR/weight-decay**; the optimizer comparison is qualitative.
 - **The head is weight-tied**, so the measured gradient sums the output-projection path and the
   embedding path. The embedding path deposits only on rows that already carry a target, and its
-  share is *not* bounded by anything measured here. See paper §3.2 and §6.
+  share is *not* bounded by anything measured here. See paper Ã‚Â§3.2 and Ã‚Â§6.
 - The `discrepancy` field in result JSONs is a diagnostic-only ratio (not reported); see
   `measurement/measure_interference.py`.
 
 ## Repository hygiene
 
 Before pushing a clean snapshot, run `clean_repo.sh`. It strips `*:Zone.Identifier` sidecars and
-`.instance_log`, and reports any live `git config user.*` line in `setup.sh` — there is none, since
+`.instance_log`, and reports any live `git config user.*` line in `setup.sh` Ã¢â‚¬â€ there is none, since
 that file now carries a commented example only. See `REPRO_NOTES.md`.
 
 ## Citation
