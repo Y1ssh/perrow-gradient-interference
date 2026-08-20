@@ -1,0 +1,28 @@
+# Normalize line endings to LF in the repository for all text sources.
+# The repo is authored on Linux (H100 runs) but is sometimes round-tripped through a
+# Windows zip download, which rewrites every line and produces a 49-file phantom diff
+# where the content is byte-identical after normalization. Declaring these as text with
+# eol=lf makes the checked-in form canonical and stops that churn.
+*.tex   text eol=lf
+*.py    text eol=lf
+*.md    text eol=lf
+*.json  text eol=lf
+*.csv   text eol=lf
+*.sh    text eol=lf
+*.bib   text eol=lf
+*.txt   text eol=lf
+*.log   text eol=lf
+*.cfg   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# Binary: never touch these.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.pt    binary
+*.npz   binary
+*.npy   binary
+*.zip   binary
