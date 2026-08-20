@@ -1,0 +1,195 @@
+\section{Introduction}
+\label{sec:intro}
+
+Predicting several future tokens at once (multi-token prediction, MTP) has
+become a common ingredient in large-scale language modeling, used to improve
+sample efficiency and to enable self-speculative decoding
+\citep{gloeckle2024mtp,deepseekv3}. The auxiliary objective is double-edged: a
+growing body of work reports that adding it can \emph{degrade} the primary
+next-token objective, particularly at smaller scales and longer horizons
+\citep{gloeckle2024mtp,zuhri2025top}. Asked why, practitioners reach for the
+intuition that pervades multi-task learning: the two losses must pull the shared
+parameters in \emph{conflicting directions}, and the remedy is to detect and
+neutralize that conflict, typically from the sign of a gradient cosine
+\citep{yu2020pcgrad,wang2021gradvaccine}. This intuition has been questioned in
+auxiliary-task learning: \citet{jiang2023forkmerge} report that gradient-conflict
+coordination can overlook auxiliary-target generalization, so the cosine signal
+does not by itself determine negative transfer. We ask what that signal actually
+measures at a language model's shared output head.
+
+This paper is a measurement study of that intuition for the case of an auxiliary
+multi-token objective sharing a model's tied output projection. Our central
+finding is diagnostic: \textbf{the cosine conflict signal is misleading here.} We
+instrument the gradient each loss deposits on the output projection and examine
+it \textbf{row by row} (one row per vocabulary item). Two facts emerge, both from
+data already in hand. First, the per-row gradients are not opposed; they are \emph{aligned}. We measure this on the rows that receive a target in the measurement batch, the ${\approx}8\%$ that are not scalar multiples by construction (Section~\ref{sec:aligned}). On those rows the median per-row cosine is ${\approx}0.53$, and ${\approx}3$--$4\%$ are opposed. Over all rows the median is $+1$ and $98.4\%$ have $|\cos| > 0.3$. On the matched active-row denominator, $83\%$ of active rows have $\cos > 0.3$; a control that measures CE against an unrelated L1 loss on the same rows reads $1.0\%$. Either way the per-row directions are
+predominantly aligned, in sharp contrast to the near-zero aggregate. Second,
+the \emph{aggregate} cosine over the flattened matrix is nonetheless near zero,
+and tracking it over training shows the two metrics \textbf{start together} (both
+$\approx +0.99$ at initialization) and then \textbf{decouple}: within ${\sim}200$
+steps the aggregate falls below zero while the per-row median stays at
+$\approx +1$. By count, almost no rows are opposed. But the aggregate cosine is magnitude-weighted, so we instrumented the per-row gradient norms directly to see where the weight lies. The two losses load their magnitude on the \emph{same} rows: the norm-profile cosine, meaning the cosine of the two per-row norm vectors, is $0.98$. Yet a tiny high-norm opposed minority, ${\approx}0.3\%$ of rows, carries $60$--$69\%$ of the mass across optimizers. It is this minority that pulls the flattened sum negative. The
+alignment is real and holds for the vast majority of rows; the aggregate is a
+\emph{norm-weighted cancellation} the cosine cannot localize.
+
+We frame this norm-weighted opposition as the structure a cosine diagnostic
+cannot see (Figure~\ref{fig:schematic}), and we relate it to the observed
+degradation without claiming to have isolated its cause. Adding the shared MTP objective degrades next-token loss by
+${\approx}0.39$ nats (${\approx}10\%$) at 124M, a large and unambiguous effect
+(Welch's unequal-variance $t$-test, $p\approx 8\times10^{-5}$), yet it co-occurs with aligned, not
+conflicting, per-row gradients (the degradation is measured on the full
+30{,}517-step run; per-row alignment on the diagnostic runs above). Three further
+observations, all from committed
+runs, are consistent with a norm-weighting/capacity account rather than a
+directional-conflict one. (i) Conflict-targeted gradient surgery does not recover
+the baseline even though the opposition it targets is real and mass-dominant: the
+opposed rows are negligible by count ($0.3\%$) but carry the majority of the
+gradient-magnitude mass ($60$--$69\%$), and per-row Gram--Schmidt on the head
+(Appendix~\ref{app:surgery}) removes exactly that opposition, yet the degradation
+does not move. The opposition the aggregate cosine detects is mass-dominant and causally inert (single-seed; Appendix~\ref{app:surgery}). (ii) Detaching the auxiliary's gradient from
+the shared head makes the damage \emph{worse}, not better. The probe forms the
+auxiliary logits as $\mathrm{sg}(W)h$, so the auxiliary still trains the trunk and
+only the head's auxiliary gradient is removed; it is confounded because the head can
+no longer co-adapt to the representations the auxiliary shapes, and we treat it as
+suggestive only. (iii)
+An auxiliary that avoids the shared head (a layer-split contrastive auxiliary)
+reduces but does \emph{not} eliminate the gap. These auxiliaries change the objective
+as well as its capacity, so the capacity ingredient is not isolated; the untested comparison that would isolate it is separate-head MTP (Section~\ref{sec:limitations}). The figures above are for the contrastive auxiliary: its standard variant is demonstrably short of the CE-only baseline ($\Delta{+}0.039$, $p \approx 0.010$), while a hyperparameter-tuned variant sits below our detection floor, the smallest difference these seed counts can resolve ($\Delta{+}0.018$, $p \approx 0.19$), and is inconclusive. We rest the capacity conclusion on the standard variant.
+
+An exact rewrite of the shared-head objective ties these three observations
+together. The objective is cross-entropy against a next-and-future-token mixture label, in effect label smoothing toward the future (an analogy: conventional label smoothing mixes toward the uniform distribution, whereas this mixes toward future-token targets). Its minimizer is therefore not the next-token distribution, which makes the degradation a plausible cost of the target rather than of the optimization path. On that reading
+the norm-weighting/capacity observations are subsumed rather than displaced: surgery
+would be inert because reprojecting gradients does not move an optimum (i; exact for symmetric projection, empirical for our head-only variants, Section~\ref{sec:discussion}), and
+separating capacity would help because it stops the two objectives from sharing one
+label (iii). A zero-parameter estimate of the implied KL cost accounts, raw,
+for $62$--$91\%$ of the matched within-sweep gap ($0.3715$) across estimator
+variants; the coverage-extrapolated full-mixture variant lands at ${\approx}88$--$89\%$, leaving a residual we name
+rather than assign.
+
+These findings carry a methodological point beyond MTP. Cosine-based conflict
+detection is standard practice in multi-task and auxiliary-learning optimization
+\citep{yu2020pcgrad,wang2021gradvaccine,du2018auxsim}, and it is the wrong
+instrument in this regime, misleading in two opposite directions depending on the
+optimizer. Under Muon the head aggregate sits near zero (${-}0.08$ to ${-}0.19$
+across measurement batches), which a practitioner treating near-zero as benign reads
+as ``no interference'' while the loss degrades regardless. Under AdamW it goes
+negative enough to trip a conflict flag, yet surgery targeting exactly that
+opposition recovers nothing. Both readings are of the \emph{head} aggregate; a
+practitioner applying a strict sign rule, or aggregating over all parameters, would
+flag conflict under both optimizers (Section~\ref{sec:general}). The
+decomposition that exposes the problem separates \textbf{direction} (cosine) from
+\textbf{support} (where each gradient's magnitude lives). Two additional
+measurements sharpen the picture and guard against over-reading it. The high
+per-row alignment is \textbf{general} across the network's weight matrices (attention and MLP matrices show it too, many with strongly \emph{negative}
+aggregate cosine), so the output head is not special because the metric singles
+it out; it is consequential because it directly produces the logits. And the
+alignment \textbf{persists when the head is untied}, so it is a property of the
+output-projection gradient, not an artifact of weight tying. A full-vocabulary
+reading suggests rarer tokens align more, but we show this is a construction
+artifact: rare tokens are almost never active, so their rows are dominated by
+the cosine-$+1$ parallel majority, and on active rows the effect vanishes. Finally,
+our account is a direction-space, multi-loss
+complement to \citet{godey2026lmhead}, who show that backpropagating a
+\emph{single} loss through the low-rank output head destroys most of its gradient
+\emph{norm}; we ask what a \emph{cosine} diagnostic reports when \emph{two} losses
+share that head, and answer that their per-row directions align while a high-norm
+opposed minority sets the aggregate: measured directly via the per-row gradient
+norms (Section~\ref{sec:mechanism}), not inferred.
+
+We are explicit about scope. Every result is for a \textbf{single shared tied
+output head}, at 124M ($n{=}5$) and 350M (single seed), undertrained, small-batch.
+We do \emph{not} claim that multi-token prediction \emph{as practiced} (separate per-horizon
+heads or modules, typically feeding a shared unembedding) degrades next-token modeling; establishing that would require a
+separate-head experiment we identify as the primary future step (Section~\ref{sec:limitations}), along with $n{=}3$ at 350M and matched-seed
+surgery. What we do establish, on data in hand, is that the standard cosine
+conflict diagnostic misreads this regime, and why.
+
+\paragraph{Contributions.} All on a controlled, reproducible GPT-2 testbed (124M
+primary, 350M illustrative; FineWeb-Edu) with open code and a committed statistics
+script:
+\begin{itemize}
+\item \textbf{A diagnostic result (Figures~\ref{fig:perrow},~\ref{fig:emergent}).}
+  For an auxiliary multi-token objective sharing the tied output projection, the
+  per-row gradients of the two losses are \emph{aligned in direction} on the rows
+  that carry a target (active-row median cosine ${\approx}0.53$, ${\approx}3$--$4\%$
+  opposed; over the full vocabulary the median is $+1$ because ${\approx}92\%$
+  of rows are scalar multiples by construction), while the aggregate cosine is
+  $\approx 0$, and this decoupling \emph{emerges during training} from an aligned
+  start. Standard cosine-based conflict diagnostics therefore \emph{misdiagnose}
+  this regime.
+\item \textbf{A norm decomposition of the collapse, and a direct measurement of
+  its cause (Figures~\ref{fig:normsupport},~\ref{fig:normdecomp}).} Via an exact
+  identity, the aggregate would read $+0.94$/$+0.96$ if gradient magnitude were
+  flat across rows but reads $-0.08$/$-0.28$: the collapse is set by per-row
+  \emph{norm} structure, not by the typical per-row direction. Instrumenting the per-row norms directly (\texttt{measure\_norm\_support.py}; $n{=}3$ seeds per optimizer) settles which structure. The two losses load the \emph{same} rows: norm-profile cosine $0.98$. A high-norm opposed minority carries the majority of the mass: opposed-norm fraction $0.60$ under Muon and $0.69$ under AdamW. The
+  aggregate is a norm-weighted cancellation, not disjoint support.
+\item \textbf{A calibrated, general characterization
+  (Figures~\ref{fig:perlayer},~\ref{fig:tokenfreq}).} The alignment is
+  \textbf{general across the network} and \textbf{survives untying} the head; the
+  apparent rarer-tokens-align-more effect is a construction artifact that vanishes
+  on active rows. The next-token degradation is large and
+  significant ($+0.39$ nats, $p\approx 8\times10^{-5}$) yet co-occurs with aligned
+  gradients.
+\item \textbf{Intervention evidence against a directional-conflict account
+  (Figure~\ref{fig:interventions}, Appendix~\ref{app:surgery}).}
+  Conflict-targeted surgery does not recover the baseline; stop-gradient makes the
+  damage worse; and the standard capacity-separated auxiliary reduces but does not eliminate
+  the gap (the standard variant demonstrably so; the tuned variant inconclusive), each reported with
+  its statistical test and caveats.
+\item \textbf{An account of what the shared head actually optimizes, and a
+  zero-parameter test of it (Figure~\ref{fig:mixturesweep}).} An exact rewrite shows
+  the shared-head objective is $1.75\times$ cross-entropy against a next-and-future-token
+  mixture label, so its optimum moves and the next-token cost is bounded by
+  $\mathrm{KL}(P_1 \Vert q^{*}) \leq \log 1.75$. Estimating that KL from the CE-only
+  model's own distributions, with no fitted parameters, reproduces the measured
+  degradation across an anchored auxiliary-weight sweep, matching within
+  $0.1\sigma$ at the lower weights and falling $1.4$--$1.8\sigma$ short at full
+  weight. This makes the shifted optimum, rather than gradient conflict, the leading
+  account of the loss increase, and it explains why conflict-targeted surgery cannot
+  help: symmetric projection leaves a shifted optimum stationary, and the head-only
+  variants we test are empirically inert. We name the residual
+  rather than claim the account is confirmed.
+\item \textbf{A bridge to the output-layer bottleneck literature.} We position the
+  result as the direction-space, multi-loss complement to
+  \citet{godey2026lmhead}'s single-loss, norm-space account of the output head as
+  a gradient bottleneck.
+\end{itemize}
+
+\paragraph{Roadmap.} Section~\ref{sec:aligned} establishes the diagnostic
+failure: on the rows that carry supervision the two gradients agree, while the
+aggregate the standard instrument reports does not.
+Sections~\ref{sec:emergent} and~\ref{sec:mechanism} give the mechanism, an exact
+two-factor decomposition showing that a high-norm opposed minority, not disjoint
+support, sets the aggregate.
+Sections~\ref{sec:softlabel} through~\ref{sec:interventions} give the account of
+the loss increase itself: the shared head makes the objective a cross-entropy
+against a blended target, so the optimum moves, which is why gradient surgery
+leaves the degradation untouched. Two further subsections carry load this summary
+would otherwise hide. Section~\ref{sec:general} shows the signature is not specific
+to this loss pair. Section~\ref{sec:rare} withdraws a rare-token reading we can show
+is a construction artifact, and reports the 350M scale check.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig0_schematic.pdf}
+\caption{\textbf{Most rows agree; a high-norm minority sets the sign} (schematic; illustrative proportions, not plotted data). \emph{Left:} row by row (one
+row per vocabulary token), the CE and MTP gradients point almost the same way for
+$99.7\%$ of rows (per-row cosine $\approx +1$); a tiny high-norm minority (red) is
+opposed. \emph{Middle:} both losses deposit their gradient \emph{magnitude} on the
+\emph{same} rows (norm-profile cosine $\approx 0.98$), and one high-norm row (red)
+carries most of the mass. \emph{Right:} the typical per-row cosine reports
+alignment, while the magnitude-weighted aggregate, the standard conflict
+diagnostic, is dragged negative by the opposed high-norm minority and is
+misinterpreted as conflict. The aggregate is not wrong about the update, but it
+cannot say \emph{where} the interference lives: it is set by per-row norms, not by
+the directions it averages. The $99.7\%$ on the left is the fraction of rows that are
+\emph{not} opposed, and the $\approx +1$ is dominated by the ${\approx}92\%$ of
+rows that receive no target in the batch and are exact scalar multiples. On the
+${\approx}8\%$ that do carry supervision the median cosine is ${\approx}0.53$
+with ${\approx}3$--$4\%$ opposed (Section~\ref{sec:aligned}); those are the quantities the
+paper's claims rest on.}
+\label{fig:schematic}
+\end{figure}
+
+% ---------------------------------------------------------------------------

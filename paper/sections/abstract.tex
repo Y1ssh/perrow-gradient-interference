@@ -1,0 +1,26 @@
+\begin{abstract}
+Cosine similarity between task gradients is the standard instrument for detecting
+\emph{conflict} in auxiliary-loss training: a negative cosine reads as
+interference, and gradient surgery acts on it. At a language model's shared,
+tied output projection it is misleading. We measure the per-row gradients a
+next-token (CE) and an auxiliary multi-token (MTP) loss deposit there, and find
+them aligned in direction. On the ${\approx}8\%$ of rows that receive a target
+the median per-row cosine is ${\approx}0.53$ and only ${\approx}3$--$4\%$ are
+opposed; the remaining ${\approx}92\%$ are scalar multiples, cosine $+1$ by
+construction. The tensor is \emph{tied}, so an embedding-path contribution to
+those cosines is unbounded here (Sections~\ref{sec:instrument},~\ref{sec:limitations}).
+Yet the \emph{aggregate} cosine runs from ${-}0.08$ to ${-}0.19$ under Muon,
+shallow enough at one end to read as benign, and ${-}0.28$ to ${-}0.34$ under
+AdamW. What comes apart is the two readings, not the supports: per-row gradient
+\emph{norms} (three seeds, both optimizers) put both losses on the \emph{same}
+rows, at a norm-profile cosine of $0.98$, but $60$--$69\%$ of that mass sits on
+${\approx}0.3\%$ of rows, the most frequent function words and punctuation. This
+is norm-weighted cancellation, not disjoint support.
+An exact rewrite shows the shared-head objective is cross-entropy toward a
+next-and-future-token mixture, whose zero-parameter KL cost reproduces
+$62$--$91\%$ of the matched within-sweep gap across estimator variants. That
+makes the shifted optimum, not gradient conflict, the leading account of the
+$+0.39$-nat degradation we measure at 124M ($p{\approx}8{\times}10^{-5}$). Here
+the aggregate cosine is \emph{uninformative about where interference lives}.
+\end{abstract}
+

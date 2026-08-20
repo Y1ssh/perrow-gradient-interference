@@ -1,0 +1,70 @@
+\documentclass{article}
+% ============================================================================
+% Aligned but Apart -- Zenodo preprint build.
+% Shared content lives at paper/sections, paper/figures, paper/references.bib
+% and is reached through ../../ ; this file holds only venue furniture.
+% Requires tmlr.sty (in this folder). Compile: tectonic -X compile main.tex
+% See paper/venues/README.md for the layout and its constraints.
+% ============================================================================
+\usepackage[preprint]{tmlr}       % preprint: no review header, real author block
+\usepackage{graphicx}
+\graphicspath{{../../}}           % MUST follow graphicx
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+% Zenodo indexes PDF metadata; the named build should carry the author.
+\hypersetup{
+  pdftitle={Aligned but Apart: Why Cosine Conflict Diagnostics Misread
+    Auxiliary-Loss Interference at the Output Projection},
+  pdfauthor={Yash Madelwar},
+  pdfsubject={Multi-token prediction, gradient interference, output projection},
+  pdfkeywords={multi-token prediction; gradient conflict; cosine similarity;
+    auxiliary losses; language model pretraining}
+}
+
+\title{Aligned but Apart: Why Cosine Conflict Diagnostics\\
+Misread Auxiliary-Loss Interference at the Output Projection}
+
+\author{\name Yash Madelwar \email ymadelwa@asu.edu \\
+  \addr Independent Researcher \\
+  \addr ORCID \href{https://orcid.org/0009-0003-1009-0716}{0009-0003-1009-0716}}
+
+\def\month{08}
+\def\year{2026}
+
+% Public repository. Printed in the Reproducibility Statement.
+\newcommand{\repourl}{\url{https://github.com/Y1ssh/perrow-gradient-interference}}
+
+\begin{document}
+
+\maketitle
+
+\input{../../sections/abstract}
+
+% Zenodo/preprint only: a DOI reader has no venue context.
+\begin{center}
+\emph{Preprint, version 1, 20 August 2026. This paper reports a completed study
+and has not been peer reviewed. Code, committed results, and
+figure-regeneration scripts are at \repourl{}.}
+\end{center}
+
+\input{../../sections/intro}
+
+\input{../../sections/related}
+\input{../../sections/method}
+\input{../../sections/results}
+\input{../../sections/discussion}
+
+\input{../../sections/reproducibility}
+
+
+\bibliography{../../references}
+\bibliographystyle{tmlr}
+
+\appendix
+\input{../../sections/appendix_surgery}
+
+\end{document}

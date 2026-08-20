@@ -1,0 +1,56 @@
+\documentclass{article}
+% ============================================================================
+% Aligned but Apart -- TMLR submission build (double-blind).
+% Requires tmlr.sty (from https://github.com/mlresearch/tmlr-style or the TMLR
+% author kit). Compile: latexmk -pdf main.tex   (or upload to Overleaf).
+% Shared content lives at paper/sections, paper/figures, paper/references.bib
+% and is reached through ../../ ; this file holds only venue furniture.
+% ============================================================================
+\usepackage{tmlr}                 % TMLR style; use \usepackage[accepted]{tmlr} for camera-ready
+\usepackage{graphicx}
+\graphicspath{{../../}}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+\title{Aligned but Apart: Why Cosine Conflict Diagnostics\\
+Misread Auxiliary-Loss Interference at the Output Projection}
+
+% Single author: fill in identifying details for camera-ready.
+\author{\name Author Name \email author@institution.edu \\
+  \addr Institution}
+
+\def\month{07}
+\def\year{2026}
+\def\openreview{\url{https://openreview.net/forum?id=XXXXXXXXXX}}
+
+% Anonymized code link. TMLR submission is double-blind: this must point at an
+% anonymous mirror (e.g. anonymous.4open.science), NOT a personal GitHub URL.
+% Replace the placeholder before upload; the accepted build swaps in the real URL.
+\newcommand{\repourl}{\texttt{[[ TODO BEFORE SUBMISSION: anonymized repository URL ]]}}
+
+\begin{document}
+\maketitle
+
+\input{../../sections/abstract}
+
+\input{../../sections/intro}
+
+\input{../../sections/related}
+\input{../../sections/method}
+\input{../../sections/results}
+\input{../../sections/discussion}
+
+\input{../../sections/reproducibility}
+
+
+\bibliography{../../references}
+\bibliographystyle{tmlr}
+
+\appendix
+\input{../../sections/appendix_surgery}
+
+\end{document}

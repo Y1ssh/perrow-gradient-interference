@@ -1,0 +1,24 @@
+\section*{Reproducibility Statement}
+All results are computed from committed result JSONs by \texttt{analysis/stats.py}; all
+data figures are regenerated from the same JSONs by \texttt{figures/make\_figures.py}
+(the conceptual schematic, Figure~\ref{fig:schematic}, by \texttt{figures/make\_schematic.py}).
+Code, data-loading, pinned dependencies (\texttt{requirements.txt}), and a
+\texttt{README} with exact run commands are available at
+\repourl{}. The optimizer (Muon) is pinned to
+commit \texttt{056a3c5869cf}. Every training and measurement run reported here was
+performed on a single rented NVIDIA H100, booked through the Prime Intellect compute
+exchange on hardware operated by Verda (DataCrunch). Across the $74$ committed runs the recorded
+wall-clock totals $196{,}501$ seconds, or ${\approx}54.6$ H100-hours; that
+counts the runs whose JSONs ship here and excludes exploratory and failed
+attempts, which were not committed and whose time we did not log. (That $74$ is
+coincidental and unrelated to the $74$ weight matrices of
+Section~\ref{sec:general}.) This work received no external funding. Scope and caveats are stated in
+Section~\ref{sec:intro} and Section~\ref{sec:limitations}.
+
+\paragraph{Use of large language models.} A large language model was used as a
+writing and analysis assistant: drafting and revising prose, generating
+figure-plotting and statistics code, and cross-checking arithmetic against the
+committed result files. It was not used to generate data, and no experimental
+result, number, or citation in this paper originates from a model without being
+recomputed from the committed JSONs or verified against the cited source. The
+author is responsible for all claims.
