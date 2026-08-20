@@ -98,3 +98,4 @@ R13. **Presentation** — ✅ title line-break fixed (no more "Mis-/read"); fig0
      "schematic; illustrative proportions, not plotted data"; abstract leads with active-row honesty.
 
 Compiles clean: 15 pages, 0 undefined refs, 0 em-dashes, all citations resolve.
+(Page count as of this triage; the paper is 28 pp after subsequent revisions.)

@@ -3,62 +3,162 @@
 
 \subsection{Per-row gradients are predominantly aligned on the rows that carry supervision}
 \label{sec:aligned}
+On the vocabulary rows that receive a target in the measurement batch, the
+next-token and auxiliary gradients point in nearly the same direction. That is
+the finding of this subsection, and it is the opposite of what the aggregate
+cosine reports. Table~\ref{tab:perrow} collects the per-row and per-norm
+statistics this subsection and Section~\ref{sec:mechanism} establish, so the
+numerical claims below can be checked against a single place.
+
 \paragraph{The honest denominator: active rows.} Because CE and the shared MTP
 loss read the \emph{same} logits from the \emph{same} hidden state, a vocabulary
 row that is not a target anywhere in the measurement batch has
-$g^{\mathrm{mtp}}_i = 0.75\,g^{\mathrm{ce}}_i$ exactly (the two objectives differ
-only in their target-indicator terms, and $0.75 = 0.5{+}0.25$ is the summed
-auxiliary weight; the empirically measured norm ratio
+$g^{\mathrm{mtp}}_i = 0.75\,g^{\mathrm{ce}}_i$ up to sequence-boundary terms. The two
+objectives differ only in their target-indicator terms, and $0.75 = 0.5{+}0.25$ is the
+summed auxiliary weight. The identity is exact on the common position set for the
+output-projection path; because the head is weight-tied, the measured gradient also
+carries an embedding-path term, which Section~\ref{sec:instrument} bounds only for
+rows that carry no target. The
+last one or two positions of each sequence carry no $t{+}2$/$t{+}3$ target, which we
+do not mask, so the correction is ${\leq}2$ positions per $1{,}024$. The empirically
+measured norm ratio
 $\lVert g^{\mathrm{mtp}}_i\rVert/\lVert g^{\mathrm{ce}}_i\rVert$ on such rows is
-$0.750$, which is itself a check that all horizons use the same hidden state). Such rows
+$0.750$, which is itself a check that all horizons use the same hidden state. Such rows
 are scalar multiples with cosine identically $+1$, and they dominate the count. We
-therefore classify rows by \emph{target presence}, not by a cosine threshold: a
-row is \emph{active} iff $\lvert\lVert g^{\mathrm{mtp}}_i\rVert/\lVert
-g^{\mathrm{ce}}_i\rVert - 0.75\rvert > 0.01$. By this construction
-${\approx}88$--$92\%$ of rows are parallel and only \textbf{${\approx}8$--$12\%$
-are active} (the exact fraction is batch-relative; see below). Restricted to the
+therefore classify rows by a proxy for \emph{target presence}: a row is
+\emph{active} iff $\lvert\lVert g^{\mathrm{mtp}}_i\rVert/\lVert
+g^{\mathrm{ce}}_i\rVert - 0.75\rvert > 0.01$. A row that receives a target moves the ratio away from $0.75$. The converse does not hold exactly: a row whose ratio coincidentally sits within the tolerance is counted parallel regardless. We quantify the size of that approximation below. The test is on the norm ratio, not on
+the cosine, so it does not presuppose the alignment it is used to measure.
+
+By this classification
+${\approx}92\%$ of rows are parallel and only \textbf{${\approx}8\%$
+are active} (the exact fraction is batch-relative; see the batch-count check below). Restricted to the
 active rows, the median per-row cosine is \textbf{${\approx}0.53$} (Muon
-$0.529{\pm}0.006$, AdamW $0.547{\pm}0.013$, $n{=}3$), \textbf{${\approx}3\%$} are
-opposed, and ${\approx}83\%$ exceed $\cos>0.3$. Over the full vocabulary the same
-run reads a median of $+1.00$, $0.33\%$ opposed, and $98.4\%$ above $|\cos|>0.3$
-against a $0.42\%$ calibrated control (Figure~\ref{fig:perrow}); these are the
-construction-inflated numbers, reported only to calibrate against the control on a
-common denominator. The active-row median of ${\approx}0.53$ is the honest measure
+$0.529{\pm}0.008$, AdamW $0.547{\pm}0.016$, $n{=}3$), \textbf{${\approx}3$--$4\%$} are
+opposed, and ${\approx}83\%$ have $\cos > 0.3$, against $1.0\%$ for the CE-vs-L1
+control on the same denominator. Over the full vocabulary the same
+run reads a median of $+1.00$, $0.33\%$ opposed (the phase-A diagnostic batch; the
+per-row-norm batch of Figure~\ref{fig:tokenlorenz} gives $140$ rows, $0.28\%$, on the
+same seed and step), and $98.4\%$ above $|\cos|>0.3$
+(Figure~\ref{fig:perrow}, also phase-A); these are the construction-inflated numbers, reported
+only to show what the full-vocabulary denominator does to the same measurement.
+Table~\ref{tab:denominators} reconciles the two denominators run by run rather than
+asserting that they agree.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+optimizer & seed & $F$ (\%) & $a$ (\%) & reconstructed (\%) & measured (\%) & parallel rows below $0.3$ \\
+\midrule
+Muon & 123 & $98.57$ & $8.18$ & $82.5$ & $82.4$ & $24$ \\
+Muon & 42 & $98.66$ & $7.82$ & $82.9$ & $83.1$ & $43$ \\
+Muon & 456 & $97.72$ & $8.36$ & $72.7$ & $81.3$ & $404$ \\
+AdamW & 123 & $98.63$ & $8.02$ & $82.9$ & $83.0$ & $36$ \\
+AdamW & 42 & $98.82$ & $7.70$ & $84.6$ & $84.9$ & $41$ \\
+AdamW & 456 & $98.48$ & $8.21$ & $81.5$ & $81.5$ & $35$ \\
+\bottomrule
+\end{tabular}
+\caption{\textbf{The two denominators reconcile, but only approximately.} $F$ is the
+full-vocabulary fraction with $|\cos|>0.3$; $a$ is the active fraction. Treating every
+parallel row as clearing the threshold gives the reconstruction
+$(F-(100-a))/a$, compared against the directly measured active-row fraction with
+$\cos>0.3$. The two thresholds differ in sign convention. The gap
+between them is the active-row population with $\cos<-0.3$, measured at
+$0.75$--$0.96\%$ of active rows across the six runs. That is not negligible at
+the precision of this check, so part of the residual below is the convention
+difference rather than reconstruction error. Five runs agree within $0.3$ points on the
+signed comparison ($1.1$ points against the unsigned active fraction).
+Percentages are computed from unrounded row counts. $F$ and $a$ are
+displayed to two decimals and the reconstruction and measured columns to one,
+so recomputing from the displayed operands can differ in the last digit. Muon seed $456$ falls short by
+$8.7$ because $404$ of its parallel rows sit below $|\cos|=0.3$ and are charged to
+the active set by the subtraction, against $24$--$43$ in the other five runs. The
+reconstruction is therefore a consistency check, not an identity.}
+\label{tab:denominators}
+\end{table}
+ The active-row median of ${\approx}0.53$ is the honest measure
 of directional alignment, and it is still well above zero, in sharp contrast to the
-near-zero aggregate. Crucially, the active-row correction does \emph{not} affect
-the mechanism in Section~\ref{sec:emergent}, which is mass-weighted: the parallel
-rows carry only ${\approx}4\%$ of the gradient-magnitude mass, so the norm-profile
-cosine ($0.98$) and opposed-norm fraction ($0.60$/$0.69$) are identical whether
-computed over all rows or active rows only. The interference lives among the active rows;
+near-zero aggregate. Crucially, the active-row correction does \emph{not} affect the mechanism in Section~\ref{sec:mechanism}, which is mass-weighted. The parallel rows carry only a few percent of the gradient-magnitude mass ($3.1\%$ averaged over the five conforming runs below, $4.5\%$ including the outlying seed). The norm-profile cosine ($0.98$) and opposed-norm fraction ($0.60$/$0.69$) are therefore essentially unchanged whether computed over all rows or active rows only. Restated on the active-row denominator the
+norm-profile cosine is $0.978$ (Muon) and $0.976$ (AdamW), against $0.979$ and $0.977$
+full-vocabulary, and the opposed-norm fraction is $0.608 \pm 0.020$ and
+$0.708 \pm 0.010$, against $0.604 \pm 0.026$ and $0.692 \pm 0.011$ (sample sd,
+$\mathrm{ddof}{=}1$, as everywhere; the same four quantities appear per seed in
+Appendix~\ref{app:surgery}). An opposed row must carry a target: rows that are parallel
+by construction have $\cos = +1$ exactly. So under the \emph{true} target-presence
+partition, restricting the denominator removes only parallel mass and the relation
+$\text{active} = \text{full}/(1-f)$ holds exactly, with $f$ the parallel-mass fraction.
+The ratio classifier only approximates that partition, and departures from the relation
+measure exactly the opposed mass it misfiles, which makes the identity a diagnostic for
+the classifier rather than a claim about the data. Measured per seed, $f$ is
+$2.3$--$3.9\%$ (Muon) and $2.8$--$3.5\%$ (AdamW) in five of the six runs, where the
+relation reproduces the active-row value to within $0.008$; the sixth is the exception
+below. Muon seed $123$ shows $f = 11.5\%$ and the only negative shift
+(${-}0.025$), because five rows land inside the $0.01$ ratio tolerance despite being
+opposed: the classifier tests magnitude only, and on these rows the magnitude ratio
+happens to sit at $0.75$ while the two directions differ. One of those five rows is the
+newline token, carrying $8.7\%$ of all mass at $\cos = -0.86$ on that seed
+(Figure~\ref{fig:tokenlorenz} shows the same token on seed $42$, at $10.8\%$ and
+$\cos = -0.91$). The classifier is therefore a generic rather than exact proxy for
+target presence: a row whose norm ratio coincidentally sits near $0.75$ is counted
+parallel. At tolerance $0.005$ that seed's misclassified mass falls to zero and its
+shift turns positive (${+}0.009$), which is the direction the relation requires. The
+$-0.025$ shift is therefore the diagnostic working as intended, not a violation of it.
+None of this moves the mechanism: the shifts are at most a few percentage points of a fraction whose
+distance from $0.5$ is what the claim rests on. The interference lives among the active rows;
 restricting to them makes the finding sharper, not weaker.
+
+Accumulating measurement batches grows the active set as expected while leaving the
+active-row statistics stable. This check is a separate instrument from the seed means
+above, run on a single seed with a different batch draw, so its medians are not
+directly comparable to the ${\pm}$ spreads quoted for $n{=}3$: one batch gives
+$8.9\%$ active rows with median cosine
+$0.541$ and $3.0\%$ opposed, and two batches give $14.5\%$ active with median $0.539$
+and $3.1\%$ opposed. The active \emph{fraction} is therefore batch-relative, as it
+must be (more batches place targets on more rows), while the active-row median and
+opposed fraction are not artifacts of a single batch draw.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/fig1_perrow_histogram.pdf}
 \caption{\textbf{Per-row CE/MTP gradients on the output projection are aligned on
 the rows that carry supervision.} Main panel: distribution of \emph{signed} per-row
-cosines over the active rows (median ${\approx}0.53$; ${\approx}3\%$ opposed, in
+cosines over the active rows (median ${\approx}0.53$; ${\approx}3$--$4\%$ opposed, in
 red). Inset: the full-vocabulary distribution, whose median is $+1.00$ because
-${\approx}88$--$92\%$ of rows are parallel by construction ($g^{\mathrm{mtp}} =
+${\approx}92\%$ of rows are parallel by construction ($g^{\mathrm{mtp}} =
 0.75\,g^{\mathrm{ce}}$ for any row with no target in the batch, since CE and the
-shared MTP loss read the same logits). Right: a CE-vs-L1 control reads $0.42\%$ of
-rows above $|\cos|>0.3$ versus $98.4\%$ full-vocab for CE-vs-MTP; on active rows the
-comparison is ${\approx}83\%$ versus the control, still a large calibration gap.
-GPT-2 124M, step 1000, $50{,}257$ vocab rows (47 padding rows masked). The
-mass-weighted mechanism (Section~\ref{sec:emergent}) is unaffected by the
+shared MTP loss read the same logits). On the matched active-row denominator,
+$83\%$ of active rows have $\cos > 0.3$ against $1.0\%$ for a CE-vs-L1 control
+measured on the same rows. Full-vocabulary control readings vary across snapshots
+($0.4\%$ on the original diagnostic run, $36\%$ on the sweep snapshot, both measured
+with the released instrument; at the sweep snapshot the full-vocabulary control median
+is $-0.24$, so that reading is structured rather than merely noisy), which is why we
+do not rest calibration on the full-vocabulary denominator.
+Muon, seed 42, GPT-2 124M, step 1000, $50{,}257$
+vocab rows (47 padding rows masked); this single draw reads $7.8\%$ active, median
+$0.536$, $3.5\%$ opposed, and the panel annotations are that draw rather than the
+seed-averaged values ($0.529 \pm 0.008$, $3.7 \pm 0.2\%$ over three Muon seeds). The
+active fraction is $7.7$--$8.4\%$ across all six norm-support runs; the separate
+batch-robustness check of Section~\ref{sec:aligned}, which accumulates over more
+batches, reads higher ($8.9\%$ at one batch, $14.5\%$ at two). Accumulation explains
+the rise to $14.5\%$, since more rows receive a target as batches are added; the
+single-batch $8.9\%$ sits above the seed range only because it is a different batch
+draw. The
+mass-weighted mechanism (Section~\ref{sec:mechanism}) is unaffected by the
 active-row restriction because parallel rows carry only ${\approx}4\%$ of the
-gradient mass.}
+gradient mass on this seed ($3.89\%$; see Section~\ref{sec:aligned} for the range
+across runs).}
 \label{fig:perrow}
 \end{figure}
 
 \subsection{The aggregate cosine decouples from per-row alignment during training}
 \label{sec:emergent}
-The aggregate cosine nonetheless reads $\approx 0$ ($-0.08$ at step 1000).
-Tracking both metrics over training (Figure~\ref{fig:emergent}) shows this is not
-a fixed property: at initialization the aggregate and per-row alignment
-\textbf{agree at $\approx +0.99$}, and the aggregate then crosses zero early (between steps $100$ and $150$ under Muon, and between $150$ and $200$ under AdamW) while the per-row median holds at $\approx +1$ for the remainder of the
-$1000$-step diagnostic window (late-training persistence is shown separately at
-350M, Section~\ref{sec:rare}). These trajectories are a single diagnostic run per
+The per-row picture and the aggregate one do not merely differ at the end of
+training; they start in agreement and come apart. Despite the aligned per-row
+median of Section~\ref{sec:aligned}, the aggregate cosine reads $\approx 0$
+($-0.08$ at step 1000).
+Tracking both metrics over training (Figure~\ref{fig:emergent}) shows this is not a fixed property. At initialization the aggregate and per-row alignment agree at $\approx +0.99$. The aggregate then crosses zero early, between steps $100$ and $150$ under Muon and between $150$ and $200$ under AdamW, while the per-row median holds at $\approx +1$ for the remainder of the $1000$-step diagnostic window. Late-training persistence is shown separately at 350M-class scale (Section~\ref{sec:rare}). These trajectories are a single diagnostic run per
 optimizer; the close agreement between two different optimizers is the
 replication we have.
 
@@ -70,11 +170,7 @@ G^{\text{ce}}\rVert\lVert G^{\text{mtp}}\rVert)\ge 0$. If gradient magnitude wer
 spread evenly across rows, the weights would be equal and the aggregate would
 equal the \emph{plain mean} of the per-row cosines. That mean is $+0.94$ (Muon)
 and $+0.96$ (AdamW), whereas the actual aggregate is $-0.08$ and $-0.28$
-(Figure~\ref{fig:normdecomp}). The entire $\approx\!1.0$ gap between ``aggregate
-if norms were flat'' and the real aggregate is therefore attributable to the
-per-row \emph{norm} structure, not to the typical per-row direction: the standard
-diagnostic is reporting a magnitude-weighting artifact, which is the paper's
-central point made quantitative.
+(Figure~\ref{fig:normdecomp}). The entire $\approx\!1.0$--$1.2$ gap between ``aggregate if norms were flat'' and the real aggregate is therefore attributable to the per-row \emph{norm} structure, not to the typical per-row direction. The standard diagnostic is reporting a magnitude-weighting artifact, which is the paper's central point made quantitative.
 
 The weights are unnormalized, and their sum is itself informative. Writing
 $a_i=\lVert g^{\text{ce}}_i\rVert$ and $b_i=\lVert g^{\text{mtp}}_i\rVert$, we
@@ -85,40 +181,75 @@ below. The aggregate therefore factors exactly as
 \text{agg}=\sum_i w_i\cos_i
       =\underbrace{\Big(\textstyle\sum_i w_i\Big)}_{\rho_{\text{norm}}}
        \cdot\underbrace{\frac{\sum_i w_i\cos_i}{\sum_i w_i}}_{\langle\cos\rangle_{\text{mass}}}
-      =\rho_{\text{norm}}\,\langle\cos\rangle_{\text{mass}},
+            =\rho_{\text{norm}}\,\langle\cos\rangle_{\text{mass}},
+\label{eq:decomp}
 \end{equation}
 the product of how much the two losses' norm profiles overlap and the
-mass-weighted mean of the per-row cosines. Numerically this is
-$-0.08 = 0.98\times(-0.082)$ (Muon) and $-0.28 = 0.98\times(-0.286)$ (AdamW). The
+mass-weighted mean of the per-row cosines. Evaluated within a single measurement,
+where all three quantities come from the same batch, this reads
+$-0.193 = 0.978\times(-0.197)$ (Muon, seed 42) and
+$-0.319 = 0.985\times(-0.324)$ (AdamW, seed 42). The identity is exact only within
+one measurement: the phase-A diagnostic aggregates ($-0.08$, $-0.28$) come from a
+different batch that did not retain per-row norms, so they cannot be factored
+directly. The
 two ``disambiguating statistics'' we introduce next are therefore not competing
 hypotheses but the two exact factors of the aggregate: support overlap is the
 total weight $\rho_{\text{norm}}$, and opposition is carried by
 $\langle\cos\rangle_{\text{mass}}$.
 
-What the identity does \emph{not} settle is which norm structure is responsible.
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{figures/fig2_emergent_divergence.pdf}
+\caption{\textbf{The aggregate and per-row alignment start together and
+decouple.} Both metrics begin at $\approx +0.99$; within ${\sim}200$ steps the
+aggregate (matrix-level) cosine falls below zero (crossing between steps
+$100$--$150$ for Muon and $150$--$200$ for AdamW) while per-row alignment stays
+high. The per-row curve is the full-vocabulary $|\cos|>0.3$ fraction
+($\approx 0.98$); on active rows the signed $\cos > 0.3$ fraction is
+$\approx 0.83$ (Section~\ref{sec:aligned}; the unsigned fraction is slightly higher),
+but the decoupling from the aggregate is identical: the aggregate goes
+negative under either denominator. One diagnostic run per optimizer (Muon solid,
+AdamW dashed); the agreement between two optimizers is the replication.
+Both series share one axis: the aggregate cosine is a cosine in $[-1,1]$ (blue),
+while the per-row series is a \emph{fraction} of rows in $[0,1]$ (red), so the red
+curves near $0.98$ are fractions and not cosines.}
+\label{fig:emergent}
+\end{figure}
+
+\subsection{The aggregate is a norm-weighted cancellation, not disjoint support}
+\label{sec:mechanism}
+The decomposition of Eq.~(\ref{eq:decomp}) splits the aggregate cosine into two exact factors. The
+norm-profile cosine $\rho_{\text{norm}}$ is the cosine between the two losses'
+vectors of per-row gradient \emph{norms}, so it measures whether they load the
+same rows. The mass-weighted mean cosine $\langle\cos\rangle_{\text{mass}}$
+measures whether the rows they load agree in direction
+(Table~\ref{tab:notation}). What that identity does \emph{not}
+settle is which of the two is responsible.
 A negative aggregate requires the opposed minority ($\cos<0$, $\approx 0.33\%$ of
 rows) to carry \emph{some} weight, so two mechanisms are a priori compatible with
 the aligned-median-plus-negative-aggregate pattern: (a) \emph{support
 divergence}, where CE and MTP load their magnitude onto increasingly disjoint
 rows, making the products $w_i$ small precisely where each gradient is large; and
 (b) a small number of \emph{high-norm opposed rows} dominating the weighted sum.
-Separating (a) from (b) needs the per-row gradient \emph{norms}, which the earlier
-runs do not store, so we measure them directly with a drop-in instrument
-(\texttt{measure\_norm\_support.py}) that logs per-row norms and reports two
-disambiguating statistics on the same short diagnostic pass: the
-\emph{norm-profile cosine} (the cosine of the two per-row norm vectors; $\approx0$
-under support divergence, $\approx1$ if the losses load the same rows) and the
-\emph{opposed-norm fraction} (the share of $\lVert g^{\text{ce}}_i\rVert\lVert
-g^{\text{mtp}}_i\rVert$ mass on rows with $\cos<0$). Across three seeds per
-optimizer, the norm-profile cosine is $0.98$ (Muon $0.979\pm0.003$, AdamW
+In terms of the identity above, (a) is $\rho_{\text{norm}} \to 0$ and (b) is
+$\rho_{\text{norm}} \approx 1$ with $\langle\cos\rangle_{\text{mass}} < 0$.
+Separating (a) from (b) needs the per-row gradient \emph{norms}, which the earlier runs do not store. We measure them directly with a drop-in instrument (\texttt{measure\_norm\_support.py}) that logs per-row norms and reports two disambiguating statistics on the same short diagnostic pass. The \emph{norm-profile cosine} is the cosine of the two per-row norm vectors: $\approx0$ under support divergence, $\approx1$ if the losses load the same rows. The \emph{opposed-norm fraction} is the share of $\lVert g^{\text{ce}}_i\rVert\lVert g^{\text{mtp}}_i\rVert$ mass on rows with $\cos<0$. Across three seeds per
+optimizer, the norm-profile cosine is $0.98$. Because both vectors are nonnegative
+and both track token frequency, the scale needs a reference. Permuting one profile
+within ten contiguous token-id blocks, which retains coarse id-block structure but
+destroys the row-level pairing, gives $0.085$--$0.111$ across the six runs. Global
+permutation gives $0.031$. Both nulls depend on the permutation draw; we report
+single-draw values and the block range across runs, and neither is regenerable from
+the committed scripts, so they should be read as order-of-magnitude references
+rather than reproducible statistics. Each block still spans a wide frequency range, so this
+control does not hold the frequency profile fixed and the residual gap to $0.98$ is
+not attributable to pairing alone. It does establish that nonnegativity and coarse
+frequency ordering together account for only ${\approx}0.1$ of the observed value,
+which is what the disjoint-support comparison needs. Per optimizer (Muon $0.979\pm0.003$, AdamW
 $0.977\pm0.007$): CE and MTP load the \emph{same} rows, so support does
 \emph{not} diverge. Yet the opposed-norm fraction is $0.60\pm0.03$ (Muon) and
 $0.69\pm0.01$ (AdamW): the majority of the magnitude mass sits on the opposed
-minority. Mechanism (b) holds, and it holds under both optimizers, with AdamW
-cancelling more strongly than Muon (Figure~\ref{fig:normsupport}); the difference
-in opposed-norm fraction ($0.69$ vs $0.60$) is significant across seeds (Welch
-$t{=}5.4$, $p\approx0.015$), so the magnitude is genuinely optimizer-dependent
-while the mechanism is shared. The near-zero
+minority. Mechanism (b) holds, and it holds under both optimizers, with AdamW canceling more strongly than Muon (Figure~\ref{fig:normsupport}). The difference in opposed-norm fraction ($0.69$ vs $0.60$) is significant across seeds (Welch $t{=}5.4$, $p\approx0.015$), so the magnitude is genuinely optimizer-dependent while the mechanism is shared. The near-zero
 aggregate is a norm-weighted cancellation by a high-norm opposed minority, not
 disjoint support.
 
@@ -134,7 +265,8 @@ nonetheless sits negative, and the arrow marks the collapse. \emph{Right:} the
 opposed-norm fraction, the share of $\lVert g^{\text{ce}}_i\rVert\lVert
 g^{\text{mtp}}_i\rVert$ mass on rows with $\cos<0$, is above one half for both
 optimizers ($0.60$ Muon, $0.69$ AdamW): the opposed minority carries most of the
-magnitude mass. AdamW cancels more strongly than Muon; the mechanism is identical,
+magnitude mass. Both panels use signed quantities, so neither conflates opposed rows
+with aligned ones. AdamW cancels more strongly than Muon; the mechanism is identical,
 the magnitude optimizer-dependent.}
 \label{fig:normsupport}
 \end{figure}
@@ -147,7 +279,17 @@ mass, and just $47$ rows account for two-thirds of \emph{all} gradient mass
 frequent function words and punctuation: the four highest-mass opposed rows are
 \texttt{.}, the newline, \texttt{\ the}, and \texttt{,}, which alone carry
 ${\approx}41\%$ of the mass, followed by \texttt{\ of}, \texttt{\ to}, \texttt{\ and},
-and \texttt{\ a} (Figure~\ref{fig:tokenlorenz}, right). This is the expected locus:
+and \texttt{\ a} (Figure~\ref{fig:tokenlorenz}, right).
+Deleting those four rows reverses the sign of the aggregate. They are the same four
+token ids in all six runs (\texttt{,}, \texttt{.}, the newline and \texttt{\ the}), so
+this is not a per-seed selection. Recomputing the mass-weighted mean per-row cosine
+without them moves it from $[{-}0.20,\,{-}0.14]$ to $[+0.18,\,+0.25]$ under Muon, and
+from $[{-}0.35,\,{-}0.30]$ to $[+0.02,\,+0.12]$ under AdamW. The aggregate of Eq.
+(\ref{eq:decomp}) itself, which is the quantity a practitioner reads, moves from
+$[{-}0.19,\,{-}0.13]$ to $[+0.17,\,+0.24]$ under Muon and from $[{-}0.34,\,{-}0.30]$ to
+$[+0.02,\,+0.11]$ under AdamW. Each interval is the spread across the three seeds. Four rows are $0.008\%$ of the vocabulary. The sign of
+the standard diagnostic is therefore set by a handful of punctuation and
+function-word rows, not by a broad property of the two gradients. This is the expected locus:
 these tokens are ubiquitous next-token \emph{and} future targets, and their
 next-token and future-token continuation distributions genuinely differ, so the
 CE and MTP gradients on their output rows point in different directions while both
@@ -169,21 +311,6 @@ ${\approx}41\%$ of the total mass. Muon, seed 42, step 1000.}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.72\linewidth]{figures/fig2_emergent_divergence.pdf}
-\caption{\textbf{The aggregate and per-row alignment start together and
-decouple.} Both metrics begin at $\approx +0.99$; within ${\sim}200$ steps the
-aggregate (matrix-level) cosine falls below zero (crossing between steps
-$100$--$150$ for Muon and $150$--$200$ for AdamW) while per-row alignment stays
-high. The per-row curve is the full-vocabulary $|\cos|>0.3$ fraction
-($\approx 0.98$); on active rows the level is lower ($\approx 0.83$, Section~\ref{sec:aligned})
-but the decoupling from the aggregate is identical: the aggregate goes
-negative under either denominator. One diagnostic run per optimizer (Muon solid,
-AdamW dashed); the agreement between two optimizers is the replication.}
-\label{fig:emergent}
-\end{figure}
-
-\begin{figure}[t]
-\centering
 \includegraphics[width=0.62\linewidth]{figures/fig6_norm_decomposition.pdf}
 \caption{\textbf{Per-row norm structure, not the typical cosine, sets the
 aggregate.} For each optimizer: the median per-row cosine ($+1.00$), the plain
@@ -196,25 +323,72 @@ $50{,}257$ real vocabulary rows.}
 \label{fig:normdecomp}
 \end{figure}
 
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+quantity & Muon ($n{=}3$) & AdamW ($n{=}3$) \\
+\midrule
+active fraction of rows (\%) & $8.1 \pm 0.3$ & $8.0 \pm 0.3$ \\
+active-row median cosine & $0.529 \pm 0.008$ & $0.547 \pm 0.016$ \\
+active rows opposed, by count (\%) & $3.7 \pm 0.2$ & $3.2 \pm 0.2$ \\
+norm-profile cosine, full vocabulary & $0.979 \pm 0.003$ & $0.977 \pm 0.007$ \\
+norm-profile cosine, active rows & $0.978 \pm 0.004$ & $0.976 \pm 0.007$ \\
+opposed-norm fraction, full vocabulary & $0.604 \pm 0.026$ & $0.692 \pm 0.011$ \\
+opposed-norm fraction, active rows & $0.608 \pm 0.020$ & $0.708 \pm 0.010$ \\
+aggregate cosine & $-0.163 \pm 0.030$ & $-0.317 \pm 0.020$ \\
+\bottomrule
+\end{tabular}
+\caption{The rows carrying supervision are aligned, yet the mass sits on rows that oppose. Per-row and per-norm statistics at the output projection, measured at step $1{,}000$ on the shared-MTP variant. Entries are across-seed means $\pm$ sample
+standard deviations ($\mathrm{ddof}{=}1$) over seeds $42/123/456$; per-seed values
+are in Appendix~\ref{app:surgery}. Rows are classified active by the norm-ratio proxy of Section~\ref{sec:aligned}. The first three rows are the decoupling
+result of Section~\ref{sec:aligned}: on rows carrying supervision the two losses
+are aligned, with only a few percent opposed by count. The next four are the
+mechanism of Section~\ref{sec:mechanism}: a norm-profile cosine near $1$ shows the
+two losses load the \emph{same} rows, so the negative aggregate in the last row
+cannot be disjoint support, and an opposed-norm fraction above $0.5$ shows the
+opposed minority carries most of the gradient mass. Both denominators are given
+because they are not interchangeable: the full-vocabulary column includes the
+${\approx}92\%$ of rows that are scalar multiples by construction. Every entry is
+emitted by \texttt{analysis/stats.py} from the committed per-row arrays.}
+\label{tab:perrow}
+\end{table}
+
 \subsection{The pattern is general, and survives untying}
 \label{sec:general}
 High per-row alignment is \textbf{not unique to the output head}. Across all 74
 weight matrices (Figure~\ref{fig:perlayer}), attention and MLP matrices also show
 high per-row alignment (many above 0.8), frequently with strongly \emph{negative}
-aggregate cosine (down to $-0.78$). The output head is distinctive only in being
-the point of \textbf{maximum} per-row alignment ($0.984$) sitting nearest
-aggregate-zero, and, more importantly, in being the matrix that \emph{directly
-produces the logits}. The head matters not because the metric singles it out, but
+aggregate cosine (down to $-0.78$). This bears directly on what a practitioner's
+signal would say: surgery methods compute conflict on the full flattened parameter
+vector or per shared tensor, not on the head alone, and at step $1000$ the per-matrix
+aggregates have median $-0.36$ (Muon) and $-0.34$ (AdamW), with $89\%$ and $86\%$ of
+the 74 matrices negative. An all-parameter aggregate would therefore very likely read
+clearly negative under \emph{both} optimizers. We cannot state it exactly: the
+snapshots committed the per-matrix cosine and per-row fraction but not the per-matrix
+gradient norms, so the norm-weighted combination across matrices is not recoverable
+from the released data. The near-zero reading that a Muon practitioner would see is a
+\emph{head-level} reading, which is the level at which the loss is paid, and the
+false-negative arm should be read with that scope. The output head is distinctive in two ways. It is the point of \textbf{maximum} per-row alignment ($0.984$) combined with a near-zero aggregate; seven attention matrices sit closer to zero, but all of them at far lower per-row alignment. More importantly, it is the matrix that \emph{directly produces the logits}. The head matters not because the metric singles it out, but
 because interference there is paid directly in next-token loss. Alignment also
 \textbf{persists when the head is untied} (A4: $99.3\%$ of rows above threshold,
-versus $98.7\%$ tied at the matched step), so it is a property of the
-output-projection gradient ($h^\top \partial\mathcal{L}/\partial\text{logits}$),
+versus $98.7\%$ tied at the matched step, which is step $500$: the untied ablation
+was run to $500$ steps, so both figures are read there, and the $98.4\%$ quoted
+above is the tied run at step $1000$), so it is a property of the
+output-projection gradient, whose row $i$ is $g_i = \sum_t \delta_i(t)\, h_t$ with
+$\delta(t) = \partial\mathcal{L}/\partial z_t$ the logit gradient at position $t$,
 not an artifact of weight tying. These two percentages are \emph{full-vocabulary}
-and therefore construction-floored (${\geq}75\%$ of rows are parallel by
-construction); the untied run did not commit per-row norms, so we cannot restate
-them on the active-row denominator, and we report them only as a point check that
-untying does not \emph{reduce} alignment. The evidentiary weight of this check is
-modest in any case: the soft-label identity (Section~\ref{sec:interventions}) predicts
+and therefore construction-floored: the construction makes ${\approx}92\%$ of rows
+parallel, and a thresholded count on runs that committed only cosines puts
+${\geq}75\%$ of all rows in that class. The count is a floor rather than an
+estimate, because a cosine stored in float32 need not read exactly $+1$ for a row
+that is parallel by construction (Section~\ref{sec:rare}). The untied run did not
+commit per-row norms, so we cannot restate these figures on the active-row
+denominator (rows receiving a target in the batch;
+Section~\ref{sec:aligned}); we report them only as a point check that untying
+does not \emph{reduce} alignment. The evidentiary weight of this check is
+modest in any case: the soft-label identity (Section~\ref{sec:softlabel}) predicts
 untied-persistence \emph{a priori}, since that identity never references tying.
 The per-layer generality (Figure~\ref{fig:perlayer})
 and the untied-head comparison are each \emph{single-run} measurements at a fixed
@@ -223,13 +397,10 @@ the 124M CE-vs-MTP loss gap is replicated across seeds).
 
 We are deliberate about what this generality does and does not license. The
 same qualitative signature (high per-row alignment with a non-positive aggregate) appears across the network, and at many matrices the aggregate is
-\emph{strongly} negative (to $-0.78$), not merely near zero. This means the
+\emph{strongly} negative, not merely near zero. This means the
 per-row/aggregate gap is a fairly generic property of these structured gradient
 matrices, so a near-zero aggregate on its own is \emph{not} a specific signature
-of two-loss interference. What is specific to the output head is that it is the
-one matrix whose per-row gradients are the CE and MTP gradients directly, whose
-norm-weighted opposition we measure end to end (Figure~\ref{fig:normsupport}),
-and whose interference is paid immediately in next-token loss. We do not
+of two-loss interference. What is specific to the output head is that its per-row gradients are the CE and MTP gradients directly. It is the one matrix whose norm-weighted opposition we measure end to end (Figure~\ref{fig:normsupport}), and whose interference is paid immediately in next-token loss. We do not
 adjudicate the per-row norm structure of the strongly-negative aggregates
 elsewhere in the network; a per-row account of those is beyond what our
 measurements settle.
@@ -239,73 +410,267 @@ measurements settle.
 \includegraphics[width=0.66\linewidth]{figures/fig3_perlayer.pdf}
 \caption{\textbf{High per-row alignment is general across the network.} Per-row
 alignment vs aggregate cosine for all 74 weight matrices. The output head (star)
-is the maximum and sits nearest aggregate-zero, but attention/MLP matrices show
-the same pattern, many with strongly negative aggregate cosine.}
+is the per-row maximum and combines that with a near-zero aggregate (seven
+attention matrices sit closer to zero, all with far lower per-row alignment), but
+attention/MLP matrices show
+the same pattern, many with strongly negative aggregate cosine. The vertical axis
+is the unsigned fraction $\lvert\cos\rvert > 0.3$, which counts an anti-aligned row
+and an aligned one alike; for the strongly-negative matrices on the left it
+therefore measures how far per-row cosines sit from zero, not how many rows agree.
+The signed decomposition is available only for the output head
+(Figures~\ref{fig:normsupport} and~\ref{fig:normdecomp}), where per-row cosines and
+norms were logged; the earlier per-layer snapshots store only this unsigned
+fraction, so we do not adjudicate the sign structure elsewhere in the network.
+Single Muon run (\texttt{results/phase\_a/a1\_muon\_interference.json}), snapshot at
+step $1{,}000$.}
 \label{fig:perlayer}
 \end{figure}
 
-\subsection{Adding shared MTP degrades next-token loss; no auxiliary recovers it}
+A second control sharpens what the active-row alignment means, and it cuts both ways.
+Two next-token losses computed on disjoint halves of the same batch, through the same
+head, read an active-row median cosine of $-0.23$ to $-0.24$ ($-0.236$ on the CE-only snapshot,
+$-0.231$ on the MTP-trained one; a row counts as active here if it receives a
+$t{+}1$, $t{+}2$ or $t{+}3$ target in either half, since the $0.75$-ratio test of
+Section~\ref{sec:aligned} requires an MTP gradient to form a ratio against). The same
+loss on different data is thus mildly \emph{anti}-aligned row by row wherever
+supervision lands, because the target-indicator component of the gradient is
+data-specific. On the full vocabulary the same measurement reads a median of $+0.71$, dominated by the inactive rows, where the shared softmax-push term aligns any two CE-like gradients regardless of data. Two disjoint-data next-token losses consequently read $91$--$93\%$ above the $|\cos|>0.3$ threshold, against $98.4\%$ for CE-vs-MTP.
+The full-vocabulary statistic is therefore close to saturated for any pair of CE-like
+losses through this head and carries little pair-specific information, which is the
+empirical case for the active-row denominator in one number. The $+0.53$ CE-vs-MTP
+active median is accordingly not generic head geometry: it is specific to two losses
+sharing the batch, the logits, and (up to offset) the target set. The measurement decomposes the identity of Section~\ref{sec:softlabel}, which rewrites the shared-head objective as one cross-entropy against a blended next-and-future target, into three parts: the push term
+aligns everywhere, shared targets align the active rows, and disjoint targets
+anti-align them.
+
+\subsection{What the shared-head objective optimizes}
+\label{sec:softlabel}
+Because the next-token loss and both MTP terms read the same logits $z$, the total
+objective admits an exact rewrite. Writing each cross-entropy as
+$\mathrm{CE}(z,y) = \mathrm{LSE}(z) - z_y$,
+%
+\begin{equation}
+\mathcal{L} = \mathrm{CE}(z,y_1) + \tfrac{1}{2}\mathrm{CE}(z,y_2) + \tfrac{1}{4}\mathrm{CE}(z,y_3)
+ = 1.75\left[\mathrm{LSE}(z) - \langle \tilde{q}, z\rangle\right],
+\qquad
+\tilde{q} = \frac{e_{y_1} + \tfrac{1}{2}e_{y_2} + \tfrac{1}{4}e_{y_3}}{1.75}.
+\label{eq:softlabel}
+\end{equation}
+%
+The shared-head objective is identically $1.75\times$ cross-entropy against a soft
+mixture label placing $57\%$ of its weight on the true next token and $43\%$ on
+future tokens: label smoothing toward the future. Two consequences follow.
+
+First, the per-row structure of Sections~\ref{sec:aligned} and~\ref{sec:mechanism} is
+the gradient signature of this soft label. Rows never touched by $\tilde{q}$ are exact
+scalar multiples of one another (the $0.75$ identity), and the high-mass opposed rows
+are precisely the frequent tokens on which the next-token target and the future
+components of $\tilde{q}$ disagree (Figure~\ref{fig:tokenlorenz}).
+
+Second, the objective's \emph{optimum moves}. The Bayes-optimal prediction under
+Equation~\ref{eq:softlabel} is the mixture
+$q^{*}(\cdot \mid \mathrm{ctx}) = \left(P_1 + \tfrac{1}{2}P_2 + \tfrac{1}{4}P_3\right)/1.75$,
+the $s{=}1$ case of the weighted family
+$q_s = \left(P_1 + \tfrac{s}{2}P_2 + \tfrac{s}{4}P_3\right)/(1+0.75s)$ used for the
+sweep below. Note the distinction from $\tilde{q}$ in Eq.~\eqref{eq:softlabel}. There, $\tilde{q}$ is the random one-hot label mixture on a single position; here, $q^{*}$ and $q_s$ are the corresponding mixtures of the true conditional \emph{distributions}, with $P_j$ the true distribution of the token at offset $j$. The excess next-token loss incurred at that optimum is $\mathrm{KL}(P_1 \Vert q^{*}) \leq \log 1.75 = 0.560$ nats. The observed $+0.39$-nat degradation (Section~\ref{sec:interventions},
+Table~\ref{tab:conditions}) is $70\%$ of this ceiling, which raises the
+question the next subsection tests directly: how much of the degradation is the
+predictable cost of optimizing a mixture target, rather than an optimization pathology.
+
+\subsection{A weight sweep and a zero-parameter KL prediction}
+\label{sec:mixturetest}
+\paragraph{Weight sweep.} Following the protocol of Section~\ref{sec:methodkl}, we
+retrain at auxiliary scales $s \in \{0, 0.25, 0.5, 1.0\}$. The endpoints reproduce the committed
+conditions, so the sweep is anchored. We compare against the matched seed-42 runs
+throughout, since the sweep is itself a single seed. Shared-MTP@42 is $4.3994$,
+displayed as $4.399$ in Table~\ref{tab:surgery} of
+Appendix~\ref{app:surgery}. CE-only@42 is $4.0028$, displayed as $4.003$ in that
+table's caption; the table body carries the five-seed CE-only mean, $3.985$,
+not the seed-42 run. Against those the sweep reads lower at both ends, by
+$0.009$ at $s{=}0$ ($3.994$) and $0.034$ at $s{=}1$ ($4.366$; the unrounded operands
+give $0.0338$, so the displayed subtraction differs by $0.001$). We attribute this to
+bf16 nondeterminism, independent batch ordering and a separate driver script. The
+$s{=}0$ miss sits well inside the $\sigma = 0.0255$ run-noise scale used
+throughout and the $s{=}1$ miss marginally outside it, so we read the anchor as a
+consistency check at single-run resolution rather than a tight calibration.
+Neither endpoint reuses a committed run: all four sweep cells were trained by the
+sweep driver. The
+within-sweep gaps relative to its own $s{=}0$ run are $0.091$, $0.183$ and $0.372$
+at $s = 0.25, 0.5, 1.0$: proportional to $s$ to within run noise. Under the mixture
+account the predicted curve $\mathrm{KL}(P_1 \Vert q_s)$ is itself near-linear
+over this range: normalized to its own $s{=}1$ value it spans $0.243$--$0.267$ at
+$s{=}0.25$ and $0.511$--$0.538$ at $s{=}0.5$ across all estimator variants, against
+exactly-linear $0.25$ and $0.50$. Rescaled to the measured $s{=}1$ gap those
+shape differences, measured as the largest departure from exact linearity, are at
+most $0.006$ and $0.014$ nats, i.e.\ $0.25\sigma$ and $0.56\sigma$, so the sweep's shape cannot discriminate the mixture account from an
+interference cost proportional to the auxiliary weight. We
+report it as an anchored proportionality check, which it passes, and rest the
+discrimination on the absolute prediction below.
+
+Comparing a KL computed at the CE-only optimum against a gap measured between two
+trained runs assumes both runs sit comparably far from their own objectives' optima
+at $4$ tokens per parameter. The entropy and future-offset checks below show the shared-MTP model has actually moved toward the mixture rather than merely trained less well. They are our evidence for reading the gap as dominated by the cost of the target rather than by optimization speed.
+
+\paragraph{Zero-parameter KL prediction.} Using only the CE-only ($s{=}0$)
+checkpoint, we estimate $\hat{P}_1$ and $\hat{P}_2$ (offset 3 is bracketed rather than estimated, Section~\ref{sec:methodkl}) on $2{,}048$ held-out
+positions per validation half ($4{,}096$ across the split), reaching coverage
+$0.90$--$0.92$ at the largest $k$, and compute $\mathrm{KL}(\hat{P}_1 \Vert \hat{q}_s)$
+with no fitted parameters at every $s$ (Section~\ref{sec:methodkl}).
+
+Against the within-sweep gaps the prediction matches at $s{=}0.25$ ($0.0914$ observed
+against band top $0.0897$) and $s{=}0.5$ ($0.1832$ against $0.1809$): both measurements
+sit just above the band's upper edge, by $0.07$--$0.09\sigma$ of run noise, which we
+read as agreement at these weights rather than as a resolved miss. It undershoots at
+$s{=}1$ (Figure~\ref{fig:mixturesweep}), where the bracketing band is
+$[0.2316, 0.3363]$ against $0.3715$ observed: a residual of $+0.035$, or $1.4\sigma$
+for the run-noise scale $\sigma = 0.0255$. That value is $\sqrt{2} \times 0.018$, where $0.018$ is a single representative per-run standard deviation fixed in the analysis code, chosen to sit inside the range our six 124M conditions actually span ($0.010$--$0.021$). The $\sqrt{2}$ converts a per-run sd into the noise on a difference between two single runs. It is a round stand-in rather than a quantity estimated from the two specific conditions, so as a check we also computed a version that is estimated from them. Combining the across-seed sds of the two conditions being differenced (CE-only $0.0138$ at $n{=}5$, shared-MTP $0.0209$ at $n{=}3$) in quadrature yields $0.0251$ from the unrounded per-seed sds; the four-decimal values quoted here give $0.0250$. Either is essentially identical to the value we use. Residuals
+below are $1.4\sigma$ and $1.6$--$1.8\sigma$ under either ($1.40$ and
+$1.63$--$1.82$ at $0.0251$). Both figures are
+\emph{run-to-run} scales: they quantify how much a retrained pair of models moves,
+and exclude the sampling error of the KL estimate itself, which is computed on
+$4{,}096$ held-out positions. The half-to-half spread of the coverage-extrapolated
+estimate ($0.3306$ against $0.3259$) is the only direct visibility we have on that
+second component, and we have not combined the two. The $\sigma$-multiples below
+should therefore be read as an upper bound on the residual's significance, not as a
+test. Note that the larger $\sigma$ is the one that makes our residual look smaller, so
+this choice errs in our favour rather than against it; we report both for that
+reason. Truncation is an \emph{upward} bias on the
+estimate, and the prediction falls linearly in uncovered mass (slopes $0.0729$ and
+$0.0676$ across the two $k$ intervals on one validation half, $0.0670$ and $0.0628$
+on the other), so extrapolating to full coverage gives $0.3306$ and $0.3259$ on the
+two halves: residuals of $+0.041$ and $+0.046$, or $1.6$--$1.8\sigma$. We quote the
+range across halves rather than the more favorable one. The remaining known bias, proxy
+smoothing from an undertrained model, is downward and unquantified: a uniform
+${\approx}10\%$ underestimate of that kind reconciles all three scales within noise,
+as would a genuine non-mixture component concentrated at full weight. Our estimator
+cannot separate these, so we name the residual rather than assign it.
+
+Two independent checks agree beyond direction. The shared-MTP model's predictive
+entropy is $1.26$ nats above CE-only's, against a truncation-biased-low prediction of
+$+0.95$ from $\hat{q}^{*}$, and it is far better at the future offsets themselves
+($t{+}2$ cross-entropy better by $2.91$ nats, $t{+}3$ by $2.57$). We therefore
+conclude that the mixture cost is the leading candidate for the bulk of the
+degradation, since it reproduces the gap's scaling and, at the lower auxiliary
+weights, its magnitude, while a residual of ${\approx}0.04$ nats at full weight
+($0.055$--$0.066$ nats measured against the multi-seed headline gap) remains open. We
+do not claim the account is confirmed.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.66\textwidth]{figures/fig_mixture_sweep.pdf}
+\caption{\textbf{A zero-parameter KL prediction tracks the measured degradation.}
+Next-token loss increase against auxiliary weight $s$, all from seed 42. Filled
+points are the measured within-sweep gaps with $\pm0.0255$ run noise; the open
+point at $s{=}0$ is the anchor, whose gap is identically zero by construction and
+therefore carries no interval. Every gap is taken against that same $s{=}0$ run, so
+the intervals share a common endpoint and are correlated across $s$ rather than
+independent. The shaded band is the predicted
+$\mathrm{KL}(\hat{P}_1 \Vert \hat{q}_s)$ at $k{=}2048$, spanning the two offset-3
+treatments and both validation halves, and it has \emph{no fitted parameters}: it is
+computed entirely from the CE-only checkpoint's own distributions. The band is
+\emph{designed} to bracket the true target: dropping offset 3 under-weights the
+future mass, while $P_3 {\approx} P_2$ substitutes a more peaked component. We do not
+prove the second direction, and one piece of our own data argues it runs the other
+way. Substituting a peaked component for $P_3$ raises
+$\mathrm{KL}(P_1 \Vert q_s)$ only if that component's mass sits away from $P_1$'s;
+a peaked component overlapping $P_1$ lowers it. The committed sweep runs put
+cross-entropy against offset-3 targets $0.58$--$0.92$ nats above offset-2 at every
+auxiliary weight, so $P_3$ is the flatter component and $P_2$ the one closer to
+$P_1$. Replacing $P_3$ by $P_2$ therefore pulls $q_s$ \emph{toward} $P_1$ and
+plausibly \emph{lowers} the predicted KL. If that reading holds, both arms bias
+downward, the interval does not bracket the truth from above, and part of the
+$+0.035$ residual at $s{=}1$ is a construction artifact rather than a miss. We flag
+this rather than resolve it: settling it needs $P_3$ estimated directly, which we
+list as the highest-value remaining measurement in \emph{Future work}. Read as
+written, the upper edge is a construction we intend as conservative and have not
+bounded. At $s{=}0.25$ and $s{=}0.5$ the measured gaps
+sit on the band's upper edge (above it by $0.07$--$0.09\sigma$ of run noise, i.e.
+agreement at our resolution); at full weight the measurement sits clearly above it,
+leaving the residual of $+0.035$ raw ($+0.041$ to $+0.046$ against the
+coverage-extrapolated tops $0.3306$ and $0.3259$ from the two validation halves; the
+figure marks the higher top, $0.3306$, which is the smaller of the two residuals), i.e.\ $1.4$--$1.8\sigma$ for the run-noise scale
+$\sigma = 0.0255$. Truncation biases the estimate upward, so
+extrapolating to full coverage lowers the prediction and widens this residual, which
+we name rather than assign (Section~\ref{sec:mixturetest}).}
+\label{fig:mixturesweep}
+\end{figure}
+
+\subsection{Adding shared MTP degrades next-token loss; no auxiliary demonstrably recovers it}
 \label{sec:interventions}
+This subsection reports the degradation and the interventions that fail to remove
+it; Sections~\ref{sec:softlabel} and~\ref{sec:mixturetest} give the account of why
+most of it is expected and why the interventions cannot help.
 Adding the shared MTP objective degrades next-token validation loss from
 $\mathbf{3.985 \pm 0.014}$ (CE-only, $n{=}5$) to $\mathbf{4.377 \pm 0.021}$
 ($n{=}3$): a \textbf{$+0.39$ nat} (${\approx}10\%$) increase. On the three seeds
 the two conditions share ($42,123,456$), a paired test gives a mean gap of
-$\mathbf{0.382}$ nats (per-seed $0.397/0.380/0.370$), $t{=}50.0$,
-$\mathbf{p \approx 4.0\times10^{-4}}$ ($\text{df}{=}2$); treating the conditions
-as independent (Welch, CE-only minus shared-MTP, using all $n{=}5$ and $n{=}3$
+$\mathbf{0.382}$ nats, $t{=}50.0$, $\mathbf{p \approx 4.0\times10^{-4}}$\ ($\text{df}{=}2$). The per-seed gaps are $0.397/0.380/0.370$ as displayed; the
+test uses the unrounded values $0.396562/0.380312/0.370313$, and recomputing from
+the three-decimal figures instead gives $t{=}48.5$. Treating the conditions as
+independent (Welch, CE-only minus shared-MTP, using all $n{=}5$ and $n{=}3$
 seeds) gives $t = -28.8$ (negative because CE-only is the lower loss),
 $p \approx 8\times10^{-5}$ with a $95\%$ CI on the difference of
-$[0.35, 0.43]$ nats. The gap is large relative to the seed-to-seed spread
-(within-condition sd $\approx 0.01$--$0.02$), which is what makes it detectable
-at these small $n$; we report the effect as the $0.39$-nat loss increase itself
-rather than a standardized effect size, since the latter is inflated by the tight
-reproducibility of a controlled testbed. With $n{=}3$ per condition and this
+$[0.35, 0.43]$ nats. The gap is large relative to the seed-to-seed spread (within-condition sd $\approx 0.01$--$0.02$), which is what makes it detectable at these small $n$. We report the effect as the $0.39$-nat loss increase itself rather than a standardized effect size, since the latter is inflated by the tight reproducibility of a controlled testbed. With $n{=}3$ in the smaller arm and this
 spread, the minimum difference we have ${\approx}80\%$ power to detect is
-$\Delta\approx0.05$ nats; the headline gap is ${\sim}8\times$ that floor, so it is
-detected with room to spare, whereas differences below ${\approx}0.05$ nats
+$\Delta\approx0.045$ nats under the \emph{paired} test (SE $\approx 0.008$,
+$\mathrm{df}{=}2$, two-sided $\alpha{=}0.05$); at that SE, $\Delta{=}0.05$ is
+detectable at ${\approx}86\%$ power and $\Delta{=}0.04$ at only ${\approx}72\%$.
+The unpaired Welch comparison is the weaker instrument: at SE $\approx 0.014$ and
+$\mathrm{df}\approx3.1$, $\Delta{=}0.05$ carries only ${\approx}68\%$ power, and
+${\approx}80\%$ needs $\Delta\approx0.06$. We quote the
+paired floor because seed-matched pairing is available for these comparisons. The
+headline gap is nearly $9\times$ that floor, so it is detected with room to spare,
+whereas differences below ${\approx}0.05$--$0.06$ nats
 (relevant to the tuned auxiliary below) are at or under our detection limit. We
 report uncorrected $p$-values for the $k{=}5$ variant-vs-baseline comparisons;
-under a Holm correction at $\alpha{=}0.05$ the shared-MTP, stop-gradient,
+under a Holm correction at $\alpha{=}0.05$, which controls the family-wise error rate across the five tests, the shared-MTP, stop-gradient,
 standard-contrastive, and NextLat results remain significant, while only the
 tuned-auxiliary comparison ($p\approx0.19$) does not survive, consistent with its
 effect sitting below the detection floor. Detaching
 the auxiliary from the head via stop-gradient makes it \emph{worse} ($4.493$,
-$\Delta{+}0.508$, $p < 10^{-4}$), not better, which points to a norm-weighting/capacity account rather than directional conflict (we note this is a data
-point, not a proof: stop-gradient also removes the auxiliary's ability to shape
-the shared representation, which is a competing reason it could hurt). The
+$\Delta{+}0.508$, $p < 10^{-4}$), not better. What this rules out is the naive
+head-detach fix: if the head's opposed rows were the site of the damage, removing
+the auxiliary gradient there should have recovered the baseline, and it does the
+opposite. It does not by itself establish which account is right, because the
+probe changes two things at once (see below). The probe forms the
+auxiliary logits as $\mathrm{sg}(W)h$ with the auxiliary weights unchanged at
+$0.5$ and $0.25$, so the auxiliary still trains the trunk and only the head's
+auxiliary gradient is removed. It is a data point rather than a proof: with the head
+frozen against the auxiliary, the head can no longer co-adapt to the representations
+the auxiliary shapes, which is a competing reason the run could be worse. The
 $n{=}5$ CE-only and $n{=}3$ shared-MTP conditions share three seeds ($42,123,456$);
 the two extra CE-only seeds ($789,1337$) were run for a tighter baseline and no
-MTP seeds were dropped. Capacity-separated auxiliaries reduce but do \textbf{not}
-recover the baseline. The \emph{standard} layer-split contrastive auxiliary
-($\mathrm{G}_{\text{nce}}$: an InfoNCE-style contrastive loss applied to an
+MTP seeds were dropped. The standard capacity-separated auxiliary reduces but does \textbf{not}
+recover the baseline; the tuned variant is inconclusive. The \emph{standard} layer-split contrastive auxiliary
+($G_{\text{nce}}$: an InfoNCE-style \citep{oord2018cpc} contrastive loss applied to an
 intermediate layer, giving the auxiliary its own representation capacity instead
 of sharing the output head) reaches $4.024$ ($\Delta{+}0.039$, $p \approx 0.010$),
 statistically distinguishable from A, i.e.\ a genuine non-recovery. A
 hyperparameter-tuned variant reaches $4.003$ ($\Delta{+}0.018$) but is \emph{not}
 statistically separable from A at $n{=}3$ ($p \approx 0.19$): for this variant we
 can claim neither recovery nor non-recovery, and we rest the capacity conclusion
-on the standard variant. A latent-prediction baseline (NextLat: the auxiliary
-predicts the \emph{hidden state} at future offsets rather than their tokens, so it
-never touches the output head) lands at $4.037$ ($\Delta{+}0.051$, Welch
+on the standard variant. A latent-prediction baseline (NextLat, after \citet{teoh2025nextlat}: the
+auxiliary predicts the \emph{hidden state} at the next offset rather than its token, so it
+never touches the output head) lands at $4.037$ ($\Delta{+}0.051$ from unrounded
+means; the displayed operands subtract to $0.052$, Welch
 $p{\approx}0.018$) (Figure~\ref{fig:interventions}).
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.66\linewidth]{figures/fig4_interventions.pdf}
-\caption{\textbf{No auxiliary recovers the baseline; MTP degrades it most.} Final
+\caption{\textbf{No auxiliary demonstrably recovers the baseline.} Final
 next-token validation loss by variant (points = seeds). Shared MTP degrades CE by
-$\Delta{+}0.39$; stop-grad by $\Delta{+}0.51$; no capacity-separated auxiliary
-recovers the CE-only baseline within noise.}
+$\Delta{+}0.39$; stop-gradient by $\Delta{+}0.51$. The \emph{standard}
+capacity-separated auxiliary does not recover the CE-only baseline
+($\Delta{+}0.039$, $p \approx 0.010$); the tuned variant ($\Delta{+}0.018$,
+$p \approx 0.19$) is statistically inconclusive at our detection floor.}
 \label{fig:interventions}
 \end{figure}
 
 Conflict-targeted gradient surgery also does not recover the baseline, and this
-is a stronger statement than ``there was nothing to remove.'' The opposed rows
-are negligible by count ($0.3\%$) but carry the majority of the gradient mass
-($60$--$69\%$), and a projection acts on the mass-weighted vector, so surgery had
-a great deal to project away; per-row Gram--Schmidt on the head targets exactly
-those opposed rows and still recovers nothing. The measured opposition is
-mass-dominant and causally inert. Because those runs are single-seed with a
+is a stronger statement than ``there was nothing to remove.'' The opposed rows are negligible by count ($0.3\%$) but carry the majority of the gradient mass ($60$--$69\%$), and a projection acts on the mass-weighted vector, so surgery had a great deal to project away. Per-row Gram--Schmidt on the head targets exactly those opposed rows and still recovers nothing. The measured opposition is
+mass-dominant and causally inert. Section~\ref{sec:softlabel} supplies the reason this should be expected. The shared objective's minimizer has moved to a mixture target, and reprojecting gradients does not move an optimum back (exact for symmetric projection, empirical for the head-only variants used here; Section~\ref{sec:discussion}). Because those runs
+are single-seed with a
 numerical-drift caveat, we report them in full in Appendix~\ref{app:surgery}
 rather than resting any claim on them.
 
@@ -316,17 +681,24 @@ rarer tokens: the rarest quintile averages $0.98$ mean $|\cos|$ versus $0.86$
 for the most-common quintile (Figure~\ref{fig:tokenfreq}, left). This effect is
 an \emph{artifact of the construction floor}. Rare tokens are almost never
 targets in a measurement batch, so they are overwhelmingly parallel-by-construction
-($\cos=+1$): the active fraction falls from ${\approx}25\%$ in the common quintile
-to ${\approx}1.5\%$ in the rarest. Restricted to active rows, the apparent
-gradient disappears: active-row mean $|\cos|$ is essentially flat across
-frequency quintiles ($0.51$--$0.54$ for Muon, $0.52$--$0.60$ for AdamW;
-Figure~\ref{fig:tokenfreq}, right), with only a weak residual (Spearman
-$\rho{\approx}0.12$ between token id and active-row $|\cos|$). We therefore
-\emph{retract} the rare-token-alignment reading: the full-vocabulary ordering
+($\cos=+1$): the active fraction, meaning the share of rows that do receive a target (Section~\ref{sec:aligned}), falls from ${\approx}25\%$ in the common quintile to ${\approx}1.5\%$ in the rarest. Restricted to active rows, the apparent
+gradient disappears: active-row mean $|\cos|$ is nearly flat across
+frequency quintiles, with a weak residual ($0.51$--$0.54$ for Muon, $0.52$--$0.60$ for AdamW;
+Figure~\ref{fig:tokenfreq}, right). GPT-2 BPE id is itself only a rough frequency
+proxy: Spearman
+$\rho{\approx}0.12$ between token id and active-row $|\cos|$, small but nonzero at
+$n{\approx}3{,}900$ active rows. We therefore
+\emph{withdraw} the rare-token-alignment reading: the full-vocabulary ordering
 reflects how many rows are parallel by construction, not a frequency-dependent
 alignment. The
 aligned-per-row-with-negative-aggregate picture holds qualitatively at
-\textbf{350M} (single seed): CE-only $3.752$, shared-MTP $4.129$ ($\Delta{+}0.378$).
+\textbf{350M}: CE-only $3.752$, shared-MTP $4.129$ ($\Delta{+}0.377$).
+That comparison is a single seed, run with the same Muon-hybrid optimizer and the
+same FineWeb-Edu corpus as the 124M runs, on a necessarily larger pool.
+$87{,}000$ steps at $16{,}384$ tokens/step is $1{,}425{,}408{,}000$ tokens processed
+over $1.369$B unique, or $1.04$ epochs and $\approx 4.0$ tokens/parameter at 355M.
+The stream is $1.5$B tokens, of which the first $1.389$B are used, with the same
+$480$M--$500$M validation slice held out as at 124M.
 
 The 350M runs are the paper's only \emph{late-training} per-row measurement,
 logged out to step $87{,}000$. The instrument computes the same quantity in both
@@ -334,20 +706,46 @@ runs (the per-row cosine between the CE gradient and the MTP gradient on the out
 (the MTP gradient is computed at measurement time for both). Measured this way,
 the shared-MTP-trained model holds $|\cos|>0.3$ at $98.9\%$ of rows at step
 $87{,}000$, and the CE-only-trained model reads $94.5\%$ at the same step. These
-are \emph{full-vocabulary} figures and thus construction-floored: with ${\geq}75\%$
-of rows parallel by construction, the informative range is the remaining
-${\approx}25$ percentage points, within which the MTP-trained model sits near the
-top and the CE-only model ${\approx}4$ points lower (coarse, but not vacuous),
+are \emph{full-vocabulary} figures and thus construction-floored. The two bounds we
+quote differ by what each run committed: runs that logged only cosines admit the
+weaker ${\geq}75\%$ parallel bound (a floor, not an estimate: floating-point
+noise on tiny-norm rows pushes some exactly-parallel rows below the
+$1-10^{-6}$ cosine threshold, so the thresholded count understates the true
+parallel fraction), whereas runs that also committed per-row norms
+permit the ratio classification of Section~\ref{sec:aligned} and give
+${\approx}92\%$ parallel. That $92\%$ is measured on the 124M step-1000 runs, not on
+these 350M runs, which committed only summary statistics; applying it here takes the
+124M active fraction as representative at triple the capacity and $87\times$ the
+steps, which we cannot check from the saved data. Taking the tighter figure, the informative range is
+the remaining ${\approx}8$ percentage points, within which the MTP-trained model sits
+at ${\approx}6.9$ points above the floor and the CE-only model at ${\approx}2.5$, so
+the $98.9$-versus-$94.5$ separation spans over half of that range, rather than the
+small slice of the $25$ points the weaker bound would leave (coarse, but not
+vacuous),
 stated here at its true resolution (the 350M runs committed only summary statistics,
 so an active-row restatement is not recoverable from the saved data). That
-the CE-only model \emph{also} shows high CE/MTP alignment this late indicates the
-alignment is an intrinsic property of the output-projection gradient geometry,
-not something the MTP objective induces. Both are single seeds, so we treat the
+the CE-only model \emph{also} shows high CE/MTP alignment this late indicates a
+substantial intrinsic component in the output-projection gradient geometry, not
+induced by the MTP objective. Which term \emph{dominates} depends on the
+denominator, and we state both. Against the full vocabulary the intrinsic reading is
+larger ($94.5$ points against the $4.4$ the objective adds). Against the
+${\approx}8$-point informative range above the construction floor the ordering
+reverses: the CE-only model contributes $2.5$ points and MTP training a further
+$4.4$. We therefore claim only that the intrinsic component is substantial, not that
+it is the larger of the two. Both are single seeds, so we treat the
 per-row persistence as illustrative (consistent with alignment not decaying over a
-long horizon), not established. The 350M \emph{loss} gap ($\Delta{+}0.378$ above)
+long horizon), not established.
+
+The 350M \emph{loss} gap ($\Delta{+}0.377$ above)
 is a next-token-loss number, unaffected by the active-row denominator, and it is
-this scale-stability of the gap (${+}0.392$ at 124M, ${+}0.378$ at 350M) that
-Section~\ref{sec:interventions} builds on.
+this scale-stability of the gap (${+}0.3915$ at 124M, ${+}0.3775$ at 350M) that
+supports the account of Section~\ref{sec:softlabel}: $\mathrm{KL}(P_1 \Vert q^{*})$ is a property of
+the data distribution, not of model capacity, so the mixture account predicts a gap
+that is roughly scale-invariant, whereas an optimization-pathology account has no
+particular reason to hold the gap fixed as capacity triples. The two scales differ by
+$0.014$ nats (from the unrounded values above), within the seed spread at 124M. This is one single-seed point at 350M
+against three at 124M, so we read it as consistent with the mixture account rather
+than as a measured scaling law.
 
 \begin{figure}[t]
 \centering
@@ -355,9 +753,13 @@ Section~\ref{sec:interventions} builds on.
 \caption{\textbf{The rare-token alignment effect is a construction artifact.}
 Left: over the full vocabulary, mean per-row $|\cos|$ rises from common to rare
 tokens (both optimizers); this is the apparent effect. Right: restricted to active
-rows (those carrying a target), the effect vanishes and mean $|\cos|$ is flat
-across frequency quintiles; the grey bars show the active fraction collapsing
+rows (those carrying a target), the apparent gradient disappears and mean $|\cos|$ is
+nearly flat across frequency quintiles, with only a weak residual; the grey bars show the active fraction collapsing
 from ${\approx}25\%$ (common) to ${\approx}1.5\%$ (rare), which is what drives the
-full-vocabulary trend. Single run per optimizer, step 1000, GPT-2 124M.}
+full-vocabulary trend. Both panels plot the \emph{unsigned} $\lvert\cos\rvert$, which
+is not comparable with the \emph{signed} active-row fraction of
+${\approx}0.83$ quoted in Section~\ref{sec:aligned}: that figure is signed and on the
+active-row denominator, whereas both panels here are unsigned, so the levels must not
+be read against each other in either direction. Single run per optimizer, step 1000, GPT-2 124M.}
 \label{fig:tokenfreq}
 \end{figure}

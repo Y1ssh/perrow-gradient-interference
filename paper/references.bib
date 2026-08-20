@@ -2,50 +2,60 @@
 % arXiv API (first-author surname + year checked). For camera-ready, swap the
 % preprint entries below for their published-venue forms where noted.
 
-@article{gloeckle2024mtp,
-  title   = {Better \& Faster Large Language Models via Multi-token Prediction},
-  author  = {Gloeckle, Fabian and Idrissi, Badr Youbi and Rozi\`ere, Baptiste and Lopez-Paz, David and Synnaeve, Gabriel},
-  journal = {arXiv preprint arXiv:2404.19737},
-  year    = {2024}
+@inproceedings{gloeckle2024mtp,
+  title     = {Better \& Faster Large Language Models via Multi-token Prediction},
+  author    = {Gloeckle, Fabian and Idrissi, Badr Youbi and Rozi\`ere, Baptiste and Lopez-Paz, David and Synnaeve, Gabriel},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {235},
+  pages     = {15706--15734},
+  year      = {2024},
+  note      = {arXiv:2404.19737}
 }
 
 @article{deepseekv3,
-  title   = {DeepSeek-V3 Technical Report},
+  title   = {{DeepSeek-V3} Technical Report},
   author  = {{DeepSeek-AI}},
   journal = {arXiv preprint arXiv:2412.19437},
   year    = {2024}
 }
 
-@article{qi2020prophetnet,
-  title   = {ProphetNet: Predicting Future N-gram for Sequence-to-Sequence Pre-training},
-  author  = {Qi, Weizhen and Yan, Yu and Gong, Yeyun and Liu, Dayiheng and Duan, Nan and Chen, Jiusheng and Zhang, Ruofei and Zhou, Ming},
-  journal = {arXiv preprint arXiv:2001.04063},
-  year    = {2020}
+@inproceedings{qi2020prophetnet,
+  title     = {{ProphetNet}: Predicting Future {N}-gram for Sequence-to-Sequence Pre-training},
+  author    = {Qi, Weizhen and Yan, Yu and Gong, Yeyun and Liu, Dayiheng and Duan, Nan and Chen, Jiusheng and Zhang, Ruofei and Zhou, Ming},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2020},
+  pages     = {2401--2410},
+  year      = {2020},
+  note      = {arXiv:2001.04063}
 }
 
 @article{cai2024medusa,
-  title   = {Medusa: Simple LLM Inference Acceleration Framework with Multiple Decoding Heads},
+  title   = {Medusa: Simple {LLM} Inference Acceleration Framework with Multiple Decoding Heads},
   author  = {Cai, Tianle and Li, Yuhong and Geng, Zhengyang and Peng, Hongwu and Lee, Jason D. and Chen, Deming and Dao, Tri},
   journal = {arXiv preprint arXiv:2401.10774},
   year    = {2024}
 }
 
-@article{gerontopoulos2025mutor,
-  title   = {Multi-Token Prediction Needs Registers},
-  author  = {Gerontopoulos, Anastasios and Gidaris, Spyros and Komodakis, Nikos},
-  journal = {arXiv preprint arXiv:2505.10518},
-  year    = {2025}
+@inproceedings{gerontopoulos2025mutor,
+  title     = {Multi-Token Prediction Needs Registers},
+  author    = {Gerontopoulos, Anastasios and Gidaris, Spyros and Komodakis, Nikos},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2025},
+  note      = {arXiv:2505.10518}
 }
 
+% Verified against the arXiv API: 2508.19228. Preprint as of this writing; swap to
+% the published venue at camera-ready if accepted.
 @article{zuhri2025top,
   title   = {Predicting the Order of Upcoming Tokens Improves Language Modeling},
   author  = {Zuhri, Zayd M. K. and Fuadi, Erland Hilman and Aji, Alham Fikri},
   journal = {arXiv preprint arXiv:2508.19228},
+  note    = {Version 2, February 2026},
   year    = {2025}
 }
 
 @article{samragh2025future,
-  title   = {Your LLM Knows the Future: Uncovering Its Multi-Token Prediction Potential},
+  title   = {Your {LLM} Knows the Future: Uncovering Its Multi-Token Prediction Potential},
   author  = {Samragh, Mohammad and Kundu, Arnav and Harrison, David and Nishu, Kumari and Naik, Devang and Cho, Minsik and Farajtabar, Mehrdad},
   journal = {arXiv preprint arXiv:2507.11851},
   year    = {2025}
@@ -53,17 +63,19 @@
 
 % Yang et al.: arXiv 2017, published ICLR 2018 (cited by venue year).
 @inproceedings{yang2018softmax,
-  title     = {Breaking the Softmax Bottleneck: A High-Rank RNN Language Model},
+  title     = {Breaking the Softmax Bottleneck: A High-Rank {RNN} Language Model},
   author    = {Yang, Zhilin and Dai, Zihang and Salakhutdinov, Ruslan and Cohen, William W.},
   booktitle = {International Conference on Learning Representations (ICLR)},
   year      = {2018}
 }
 
-@article{godey2026lmhead,
-  title   = {Lost in Backpropagation: The LM Head is a Gradient Bottleneck},
-  author  = {Godey, Nathan and Artzi, Yoav},
-  journal = {arXiv preprint arXiv:2603.10145},
-  year    = {2026}
+% Verified against the arXiv API: 2603.10145, title and author order exact.
+@inproceedings{godey2026lmhead,
+  title     = {Lost in Backpropagation: The {LM} Head is a Gradient Bottleneck},
+  author    = {Godey, Nathan and Artzi, Yoav},
+  booktitle = {Conference on Language Modeling (COLM)},
+  year      = {2026},
+  note      = {arXiv:2603.10145}
 }
 
 @article{du2018auxsim,
@@ -89,17 +101,18 @@
 }
 
 @article{sun2023drmgf,
-  title   = {Learning Task-preferred Inference Routes for Gradient De-conflict in Multi-output DNNs},
+  title   = {Learning Task-preferred Inference Routes for Gradient De-conflict in Multi-output {DNNs}},
   author  = {Sun, Yi and Xu, Xin and Li, Jian and Hu, Xiaochang and Shi, Yifei and Zeng, Ling-Li},
   journal = {arXiv preprint arXiv:2305.19844},
   year    = {2023}
 }
 
-@article{shi2023recon,
-  title   = {Recon: Reducing Conflicting Gradients from the Root for Multi-Task Learning},
-  author  = {Shi, Guangyuan and Li, Qimai and Zhang, Wenlong and Chen, Jiaxin and Wu, Xiao-Ming},
-  journal = {arXiv preprint arXiv:2302.11289},
-  year    = {2023}
+% Published at ICLR 2023 (arXiv:2302.11289 comment: "Accepted as a conference paper at ICLR 2023").
+@inproceedings{shi2023recon,
+  title     = {Recon: Reducing Conflicting Gradients from the Root for Multi-Task Learning},
+  author    = {Shi, Guangyuan and Li, Qimai and Zhang, Wenlong and Chen, Jiaxin and Wu, Xiao-Ming},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
 }
 
 % GradNorm: arXiv Nov 2017, published ICML 2018 (cited by venue year).
@@ -147,4 +160,94 @@
   author    = {Gao, Jun and He, Di and Tan, Xu and Qin, Tao and Wang, Liwei and Liu, Tie-Yan},
   booktitle = {International Conference on Learning Representations (ICLR)},
   year      = {2019}
+}
+
+% Author list, title and year copied verbatim from the citation block in the
+% upstream repository README (github.com/KellerJordan/Muon), verified 2026-07-27.
+@misc{jordan2024muon,
+  title        = {Muon: An optimizer for hidden layers in neural networks},
+  author       = {Keller Jordan and Yuchen Jin and Vlado Boza and You Jiacheng and
+                  Franz Cesista and Laker Newhouse and Jeremy Bernstein},
+  year         = {2024},
+  url          = {https://kellerjordan.github.io/posts/muon/},
+  note         = {Software}
+}
+
+% !! UNVERIFIED AUTHOR LIST -- CONFIRM AGAINST THE OPENAI TECH REPORT BEFORE SUBMISSION.
+% The GPT-2 report is not on arXiv and has no Crossref DOI; Semantic Scholar was
+% rate-limited and DBLP is off the network allowlist, so this list could not be
+% checked against a primary source in-session. Everything else in this file was
+% verified. Do not submit without confirming these six names and their order.
+@techreport{radford2019gpt2,
+  title       = {Language Models are Unsupervised Multitask Learners},
+  author      = {Radford, Alec and Wu, Jeffrey and Child, Rewon and Luan, David and Amodei, Dario and Sutskever, Ilya},
+  year        = {2019},
+  institution = {OpenAI}
+}
+
+@inproceedings{penedo2024fineweb,
+  title     = {The {FineWeb} Datasets: Decanting the Web for the Finest Text Data at Scale},
+  author    = {Penedo, Guilherme and Kydl\'{i}\v{c}ek, Hynek and Ben Allal, Loubna and Lozhkov, Anton and Mitchell, Margaret and Raffel, Colin and Von Werra, Leandro and Wolf, Thomas},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track},
+  pages     = {30811--30849},
+  year      = {2024},
+  note      = {arXiv:2406.17557}
+}
+
+@inproceedings{stern2018blockwise,
+  title     = {Blockwise Parallel Decoding for Deep Autoregressive Models},
+  author    = {Stern, Mitchell and Shazeer, Noam and Uszkoreit, Jakob},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2018}
+}
+
+@article{oord2018cpc,
+  title   = {Representation Learning with Contrastive Predictive Coding},
+  author  = {van den Oord, Aaron and Li, Yazhe and Vinyals, Oriol},
+  journal = {arXiv preprint arXiv:1807.03748},
+  year    = {2018}
+}
+
+
+% Verified against arXiv:2110.14048 (comment: "Conference on Neural Information Processing Systems, 2021").
+@inproceedings{liu2021cagrad,
+  title     = {Conflict-Averse Gradient Descent for Multi-task Learning},
+  author    = {Liu, Bo and Liu, Xingchao and Jin, Xiaojie and Stone, Peter and Liu, Qiang},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2021}
+}
+
+% Verified against arXiv:2202.01017 (comment: "ICML 2022").
+@inproceedings{navon2022nashmtl,
+  title     = {Multi-Task Learning as a Bargaining Game},
+  author    = {Navon, Aviv and Shamsian, Aviv and Achituve, Idan and Maron, Haggai and
+               Kawaguchi, Kenji and Chechik, Gal and Fetaya, Ethan},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2022}
+}
+
+@article{teoh2025nextlat,
+  title={Next-Latent Prediction Transformers Learn Compact World Models},
+  author={Teoh, Jayden and Tomar, Manan and Ahn, Kwangjun and Hu, Edward S. and Pearce, Tim and Sharma, Pratyusha and Krishnamurthy, Akshay and Islam, Riashat and Lamb, Alex and Langford, John},
+  journal={arXiv preprint arXiv:2511.05963},
+  year={2025},
+  note={Code at \url{https://github.com/JaydenTeoh/NextLat}}
+}
+
+@article{monea2026sps,
+  title={The State-Prediction Separation Hypothesis},
+  author={Monea, Giovanni and Godey, Nathan and Brantley, Kiant\'e and Artzi, Yoav},
+  journal={arXiv preprint arXiv:2607.01218},
+  year={2026}
+}
+
+@inproceedings{liu2025modular,
+  title     = {A Modular-based Strategy for Mitigating Gradient Conflicts in
+               Simultaneous Speech Translation},
+  author    = {Liu, Xiaoqian and Du, Yangfan and Wang, Jianjin and Ge, Yuan and
+               Xu, Chen and Xiao, Tong and Chen, Guocheng and Zhu, Jingbo},
+  booktitle = {IEEE International Conference on Acoustics, Speech and Signal
+               Processing (ICASSP)},
+  year      = {2025},
+  note      = {arXiv:2409.15911}
 }

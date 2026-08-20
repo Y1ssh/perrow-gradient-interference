@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Regenerate all seven paper figures from the committed result JSONs.
+Regenerate all data figures in the paper from the committed result JSONs.
 
-    python figures/make_figures.py --results results --out figures
+    python figures/make_figures.py --results results --out figures --analysis analysis
 
-No GPU or training needed; reads only `results/`. Produces fig1..fig6 plus
-fig_token_lorenz as .png + .pdf + .csv in --out. Numbers match stats.py.
-fig1/fig5/fig_token_lorenz read results/norm_support/ (per-row norms + cosines).
+No GPU or training needed; reads only `results/` and `analysis/`. Produces
+fig1..fig6 plus fig_token_lorenz and fig_mixture_sweep as .png + .pdf + .csv in
+--out. Numbers match stats.py.
+fig1/fig5/fig_token_lorenz read results/norm_support/ (per-row norms + cosines);
+fig_mixture_sweep reads results/phase_e/ + analysis/kl_scan_results.json.
 
 Figures:
   1  Per-row cosine distribution (sign-split, points-on-log) + control
@@ -116,7 +118,8 @@ def fig2(results, out):
     ax.plot(ms, mpr, "-", color=ALARM, lw=1.6, label="per-row |cos|>0.3 (Muon)")
     ax.plot(as_, apr, "--", color=ALARM, lw=1.2, alpha=0.7, label="per-row |cos|>0.3 (AdamW)")
     ax.axhline(0, color=META_GREY, lw=0.6, ls=":")
-    ax.set_xscale("log"); ax.set_xlabel("Training step"); ax.set_ylabel("Cosine / fraction")
+    ax.set_xscale("log"); ax.set_xlabel("Training step")
+    ax.set_ylabel("Aggregate cosine or per-row fraction")
     ax.set_title("Aggregate and per-row alignment decouple during training", fontsize=8, loc="left")
     ax.legend(frameon=False, fontsize=6, loc="center right")
     _save(fig, out, "fig2_emergent_divergence")
@@ -150,7 +153,7 @@ def fig4(results, out):
         return [_load(f)["final_val_loss"] for f in fs if "5000steps" not in f]
     data = {"a": mean_vals("a"), "gnce": mean_vals("gnce"), "gnce_t": tuned_10_9(),
             "nextlat": mean_vals("nextlat"), "b": mean_vals("b"), "b_sg": mean_vals("b_sg")}
-    order = [("a", "CE only"), ("gnce", "G_nce"), ("gnce_t", "G_nce\ntuned"),
+    order = [("a", "CE only"), ("gnce", "$G_{\\mathrm{nce}}$"), ("gnce_t", "$G_{\\mathrm{nce}}$\ntuned"),
              ("nextlat", "NextLat"), ("b", "shared\nMTP"), ("b_sg", "MTP\nstop-grad")]
     A_mean = np.mean(data["a"])
     fig, ax = plt.subplots(figsize=(5.2, 3.3))
@@ -164,7 +167,7 @@ def fig4(results, out):
     ax.text(2.4, A_mean - 0.012, f"baseline A = {A_mean:.3f}", fontsize=6, color=META_GREY, ha="center", va="top")
     ax.set_xticks(range(len(order))); ax.set_xticklabels([l for _, l in order], fontsize=6)
     ax.set_ylabel("Final validation loss (nats)"); ax.set_ylim(3.9, 4.60)
-    ax.set_title("No auxiliary recovers the baseline; MTP degrades it most", fontsize=7.6, loc="left")
+    ax.set_title("No auxiliary demonstrably recovers the baseline", fontsize=7.6, loc="left")
     for k, lab, dx in [("b", f"Δ+{np.mean(data['b'])-A_mean:.2f}", -0.42),
                        ("b_sg", f"Δ+{np.mean(data['b_sg'])-A_mean:.2f}", -0.42)]:
         i = [j for j, (kk, _) in enumerate(order) if kk == k][0]
@@ -263,6 +266,77 @@ def fig_token_lorenz(results, out):
          ((n, f"{cummass[n-1]:.5f}") for n in list(range(1, 101)) + list(range(100, 601, 10))))
 
 
+def fig7(results, out):
+    """Norm support: norm-profile cosine + opposed-norm fraction, n=3 seeds/optimizer.
+
+    Regenerates the mechanism figure from the committed results/norm_support/ JSONs
+    so a fresh clone can rebuild it. Plots SIGNED quantities throughout: the
+    norm-profile cosine of the two per-row norm vectors, and the fraction of
+    norm-product mass carried by rows with cos < 0.
+    """
+    opts = ["muon", "adamw"]
+    labels = ["Muon", "AdamW"]
+    stat = {}
+    for opt in opts:
+        npc, onf, gc = [], [], []
+        for seed in (42, 123, 456):
+            d = _load(f"{results}/norm_support/norm_support_{opt}_seed{seed}.json")
+            npc.append(float(d["norm_profile_cos"]))
+            onf.append(float(d["opposed_norm_fraction"]))
+            gc.append(float(d["global_cos"]))
+        stat[opt] = dict(npc=npc, onf=onf, gc=gc)
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(9.0, 3.6))
+    x = np.arange(len(opts))
+    npc_m = [float(np.mean(stat[o]["npc"])) for o in opts]
+    npc_s = [float(np.std(stat[o]["npc"], ddof=1)) for o in opts]
+    gc_m = [float(np.mean(stat[o]["gc"])) for o in opts]
+    gc_s = [float(np.std(stat[o]["gc"], ddof=1)) for o in opts]
+    axL.errorbar(x - 0.08, npc_m, yerr=npc_s, fmt="o", ms=8, capsize=4,
+                 color="#2b6cb0", label="norm-profile cosine")
+    axL.errorbar(x + 0.08, gc_m, yerr=gc_s, fmt="s", ms=8, capsize=4,
+                 color="#c0392b", label="aggregate cosine")
+    axL.axhline(0.0, lw=0.8, color="0.6", zorder=0)
+    for xi, (a, b) in enumerate(zip(npc_m, gc_m)):
+        axL.annotate("", xy=(xi + 0.08, b + 0.06), xytext=(xi - 0.08, a - 0.06),
+                     arrowprops=dict(arrowstyle="->", color="0.45", lw=1.2))
+    axL.set_xticks(x)
+    axL.set_xticklabels(labels)
+    axL.set_xlim(-0.45, 1.45)
+    axL.set_ylim(-0.55, 1.12)
+    axL.set_ylabel("cosine")
+    axL.set_title("Same rows are loaded, yet the aggregate is negative", fontsize=10)
+    axL.legend(frameon=False, fontsize=8, loc="center right")
+
+    onf_m = [float(np.mean(stat[o]["onf"])) for o in opts]
+    onf_s = [float(np.std(stat[o]["onf"], ddof=1)) for o in opts]
+    axR.errorbar(x, onf_m, yerr=onf_s, fmt="o", ms=8, capsize=4, color="#2b6cb0")
+    axR.axhline(0.5, ls="--", lw=1.0, color="0.5")
+    axR.text(0.98, 0.52, "half the mass", transform=axR.get_yaxis_transform(),
+             fontsize=8, color="0.45", va="bottom", ha="right")
+    for xi, (v, e) in enumerate(zip(onf_m, onf_s)):
+        axR.annotate(f"{v:.2f}", xy=(xi, v + e), xytext=(0, 7),
+                     textcoords="offset points", ha="center", fontsize=9)
+    axR.set_xticks(x)
+    axR.set_xticklabels(labels)
+    axR.set_xlim(-0.45, 1.45)
+    axR.set_ylim(0.0, 1.0)
+    axR.set_ylabel("opposed-norm fraction (cos < 0)")
+    axR.set_title("The opposed minority carries most of the mass", fontsize=10)
+    for ax in (axL, axR):
+        ax.margins(0.06)
+    fig.suptitle("The aggregate is a norm-weighted cancellation, not disjoint support",
+                 fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    _save(fig, out, "fig7_norm_support")
+    _csv(out, "fig7_norm_support",
+         ["optimizer", "norm_profile_cos_mean", "norm_profile_cos_sd",
+          "opposed_norm_fraction_mean", "opposed_norm_fraction_sd",
+          "aggregate_cos_mean", "aggregate_cos_sd"],
+         [[labels[i], npc_m[i], npc_s[i], onf_m[i], onf_s[i], gc_m[i], gc_s[i]]
+          for i in range(len(opts))])
+
+
 def fig6(results, out):
     """Norm decomposition: median cos, mean cos (=aggregate if norms flat), actual aggregate."""
     from matplotlib.lines import Line2D
@@ -295,6 +369,88 @@ def fig6(results, out):
          [(d[0], d[1], d[2], d[3]) for d in data])
 
 
+def fig_mixture_sweep(results, out, analysis="analysis"):
+    """Measured next-token gap vs auxiliary weight s, with the zero-parameter KL band.
+
+    Reads results/phase_e/sweep_scale*.json (observed gaps) and
+    analysis/kl_scan_results.json (predicted band + coverage extrapolation).
+    Both are committed, so this regenerates from a fresh clone.
+    """
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+    sw = {}
+    for f in sorted(glob.glob(f"{results}/phase_e/sweep_scale*_seed42_*steps.json")):
+        d = _load(f)
+        sw[float(d["mtp_scale"])] = float(d["final_val_loss"])
+    if 0.0 not in sw:
+        print("  fig_mixture_sweep: no s=0 anchor, skipped"); return
+    ce0 = sw[0.0]
+    scales = sorted(sw)
+    gaps = [sw[s] - ce0 for s in scales]
+
+    kl = _load(f"{analysis}/kl_scan_results.json")
+    rows = kl["kl_estimates"]
+    kmax = max(e["topk"] for e in rows)
+    sig = float(kl.get("gap_noise_sd", 0.0255))
+    # band per s = [min over all variants, max over all variants] at the largest k
+    band_lo, band_hi = [], []
+    for s in scales:
+        key = f"{s:g}" if f"{s:g}" in rows[0] else str(s)
+        vals = [e[key] for e in rows if e["topk"] == kmax and key in e]
+        band_lo.append(min(vals) if vals else 0.0)
+        band_hi.append(max(vals) if vals else 0.0)
+    # coverage extrapolation of the full-mixture (p3eqp2) variant at s=1
+    h0 = sorted([e for e in rows if e["offset3"] == "p3eqp2" and e["val_half"] == 0],
+                key=lambda e: e["topk"])
+    extrap = None
+    if len(h0) >= 2:
+        u = [1.0 - e["coverage_mass"] for e in h0]
+        v = [e["1.0"] for e in h0]
+        slope = (v[-2] - v[-1]) / (u[-2] - u[-1])
+        extrap = v[-1] - slope * u[-1]
+
+    fig, ax = plt.subplots(figsize=(5.2, 3.5))
+    ax.fill_between(scales, band_lo, band_hi, color=AUX, alpha=0.30, lw=0, zorder=1)
+    ax.plot(scales, band_hi, color=AUX, lw=1.0, zorder=2)
+    ax.plot(scales, band_lo, color=AUX, lw=1.0, zorder=2)
+    # s=0 is the anchor: its "gap" is the loss minus itself, identically zero, so it
+    # carries no run-noise interval. Only the s>0 points are measurements against it.
+    pos = [i for i, s in enumerate(scales) if s > 0]
+    ax.errorbar([scales[i] for i in pos], [gaps[i] for i in pos], yerr=sig, fmt="o",
+                color=FOC, ms=6, lw=0, elinewidth=1.1, capsize=2.5, zorder=4)
+    ax.plot([0.0], [0.0], marker="o", mfc="white", mec=FOC, mew=1.2, ms=6, ls="", zorder=4)
+    if extrap is not None:
+        ax.plot([1.0], [extrap], marker="v", color=ALARM, ms=7, ls="", zorder=5)
+        ax.annotate(f"coverage-extrapolated\ntop {extrap:.3f}", xy=(1.0, extrap),
+                    xytext=(0.62, extrap - 0.075), fontsize=6, color=ALARM,
+                    ha="left", va="top",
+                    arrowprops=dict(arrowstyle="->", color=ALARM, lw=0.8))
+        ax.annotate(f"residual {gaps[-1] - extrap:+.3f}",
+                    xy=(1.0, (gaps[-1] + extrap) / 2), xytext=(1.03, (gaps[-1] + extrap) / 2),
+                    fontsize=6, color=FOC, ha="left", va="center")
+    ax.set_xlabel("Auxiliary weight $s$")
+    ax.set_ylabel("Next-token loss increase (nats)")
+    ax.set_title("A zero-parameter KL prediction tracks the measured degradation",
+                 fontsize=7.8, loc="left")
+    ax.set_xticks(scales)
+    ax.margins(0.06)
+    ax.set_xlim(-0.06, 1.30)
+    leg = [Line2D([], [], marker="o", color=FOC, ls="", ms=6,
+                  label=f"measured gap ($\\pm${sig:.4f} run noise)"),
+           Line2D([], [], marker="o", mfc="white", mec=FOC, mew=1.2, ls="", ms=6,
+                  label="anchor ($s{=}0$, gap $\\equiv 0$)"),
+           Patch(facecolor=AUX, alpha=0.30, label=f"predicted KL band, $k{{=}}{kmax}$"),
+           Line2D([], [], marker="v", color=ALARM, ls="", ms=6,
+                  label="full-coverage extrapolation")]
+    ax.legend(handles=leg, loc="upper left", frameon=False, fontsize=6)
+    _save(fig, out, "fig_mixture_sweep")
+    _csv(out, "fig_mixture_sweep",
+         ["s", "final_val", "observed_gap", "band_lo", "band_hi"],
+         [(scales[i], sw[scales[i]], gaps[i], band_lo[i], band_hi[i])
+          for i in range(len(scales))])
+    return {"gaps": gaps, "band_hi": band_hi, "extrap": extrap}
+
+
 def _save(fig, out, name):
     fig.savefig(f"{out}/{name}.png", dpi=300, bbox_inches="tight")
     fig.savefig(f"{out}/{name}.pdf", bbox_inches="tight")
@@ -313,12 +469,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default="results")
     ap.add_argument("--out", default="figures")
+    ap.add_argument("--analysis", default="analysis")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     _style()
     s = fig1(a.results, a.out); fig2(a.results, a.out); fig3(a.results, a.out)
     fig4(a.results, a.out); fig5(a.results, a.out); fig6(a.results, a.out)
+    fig7(a.results, a.out)
     fig_token_lorenz(a.results, a.out)
+    fig_mixture_sweep(a.results, a.out, a.analysis)
     print("Figures written to", a.out)
     print(f"  fig1: active median {s['active_median']:.2f}, {s['active_frac_neg']:.2f}% opposed, "
           f"{s['active_fraction']:.1f}% of vocab active")

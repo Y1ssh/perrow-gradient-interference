@@ -69,7 +69,17 @@
       "welch_df": 3.077100851280772,
       "cohens_d": -23.676899005709647,
       "n_A": 5,
-      "n_other": 3
+      "n_other": 3,
+      "paired_t": 49.993028074753916,
+      "paired_p": 0.0003998716002542327,
+      "paired_df": 2.0,
+      "paired_n": 3,
+      "paired_mean_diff": 0.38239583333333327,
+      "paired_seeds": [
+        42,
+        123,
+        456
+      ]
     },
     "A_vs_b_sg": {
       "delta_mean": 0.5075833333333328,
@@ -78,7 +88,17 @@
       "welch_df": 5.527729600393527,
       "cohens_d": -39.958706393466926,
       "n_A": 5,
-      "n_other": 3
+      "n_other": 3,
+      "paired_t": 210.64787933840034,
+      "paired_p": 2.253570435433655e-05,
+      "paired_df": 2.0,
+      "paired_n": 3,
+      "paired_mean_diff": 0.4984374999999998,
+      "paired_seeds": [
+        42,
+        123,
+        456
+      ]
     },
     "A_vs_gnce": {
       "delta_mean": 0.0389999999999997,
@@ -87,7 +107,19 @@
       "welch_df": 6.983061486228202,
       "cohens_d": -2.2191269777807245,
       "n_A": 5,
-      "n_other": 5
+      "n_other": 5,
+      "paired_t": 10.856689921828,
+      "paired_p": 0.0004084965135844301,
+      "paired_df": 4.0,
+      "paired_n": 5,
+      "paired_mean_diff": 0.039000000000000055,
+      "paired_seeds": [
+        42,
+        123,
+        456,
+        789,
+        1337
+      ]
     },
     "A_vs_nextlat": {
       "delta_mean": 0.05133333333333301,
@@ -96,7 +128,17 @@
       "welch_df": 3.4685949725997607,
       "cohens_d": -3.3568267324415415,
       "n_A": 5,
-      "n_other": 3
+      "n_other": 3,
+      "paired_t": 4.895891145603789,
+      "paired_p": 0.03927770812119165,
+      "paired_df": 2.0,
+      "paired_n": 3,
+      "paired_mean_diff": 0.042187500000000266,
+      "paired_seeds": [
+        42,
+        123,
+        456
+      ]
     },
     "A_vs_gnce_tuned_10-9": {
       "delta_mean": 0.017479166666666934,
@@ -129,5 +171,301 @@
     "delta": 0.37749999999999995,
     "n": 1
   },
-  "note": "Welch's t + pooled Cohen's d. 350M is n=1 (no test). Padding rows (50257..50303) masked from per-row stats."
+  "note": "Welch's t + pooled Cohen's d. 350M is n=1 (no test). Padding rows (50257..50303) masked from per-row stats.",
+  "norm_support_restatement": {
+    "adamw": {
+      "per_seed": [
+        {
+          "seed": 42,
+          "active_fraction": 0.07702409614581053,
+          "active_median_cos": 0.5636933445930481,
+          "active_opposed_count_frac": 0.029449754585378456,
+          "aggregate_cos": -0.31861522793769836,
+          "onf_full": 0.6913611687248515,
+          "onf_active": 0.7087557920052925,
+          "npc_full": 0.9845557532285298,
+          "npc_active": 0.9843369517004716,
+          "parallel_mass_fraction": 0.03533902989024331,
+          "opposed_mass_inside_parallel": 0.007652118838117234,
+          "identity_pred_active": 0.7166882357085415,
+          "identity_residual": -0.00793244370324897
+        },
+        {
+          "seed": 123,
+          "active_fraction": 0.0801679368048232,
+          "active_median_cos": 0.5433623194694519,
+          "active_opposed_count_frac": 0.03375527426160337,
+          "aggregate_cos": -0.33554670214653015,
+          "onf_full": 0.7034708857816855,
+          "onf_active": 0.7178680172268374,
+          "npc_full": 0.9713427400455328,
+          "npc_active": 0.970987584400009,
+          "parallel_mass_fraction": 0.02817475424460454,
+          "opposed_mass_inside_parallel": 0.005828623520275535,
+          "identity_pred_active": 0.723865621781497,
+          "identity_residual": -0.005997604554659697
+        },
+        {
+          "seed": 456,
+          "active_fraction": 0.08205822074536881,
+          "active_median_cos": 0.5325065851211548,
+          "active_opposed_count_frac": 0.03200775945683802,
+          "aggregate_cos": -0.29636716842651367,
+          "onf_full": 0.6805535271545642,
+          "onf_active": 0.6988333936795637,
+          "npc_full": 0.9739039167813726,
+          "npc_active": 0.9732303139428932,
+          "parallel_mass_fraction": 0.028192479081534966,
+          "opposed_mass_inside_parallel": 0.0014219793077898074,
+          "identity_pred_active": 0.700296625108814,
+          "identity_residual": -0.0014632314292503112
+        }
+      ],
+      "onf_full": {
+        "mean": 0.6917951938870338,
+        "sd_ddof1": 0.011464842562899771,
+        "min": 0.6805535271545642,
+        "max": 0.7034708857816855
+      },
+      "onf_active": {
+        "mean": 0.7084857343038978,
+        "sd_ddof1": 0.009520184965018722,
+        "min": 0.6988333936795637,
+        "max": 0.7178680172268374
+      },
+      "npc_full": {
+        "mean": 0.9766008033518118,
+        "sd_ddof1": 0.007007198243511801,
+        "min": 0.9713427400455328,
+        "max": 0.9845557532285298
+      },
+      "npc_active": {
+        "mean": 0.9761849500144578,
+        "sd_ddof1": 0.007148342994513424,
+        "min": 0.970987584400009,
+        "max": 0.9843369517004716
+      },
+      "parallel_mass_fraction": {
+        "mean": 0.030568754405460936,
+        "sd_ddof1": 0.004131189258917802,
+        "min": 0.02817475424460454,
+        "max": 0.03533902989024331
+      },
+      "active_fraction": {
+        "mean": 0.07975008456533418,
+        "sd_ddof1": 0.0025429417986859125,
+        "min": 0.07702409614581053,
+        "max": 0.08205822074536881
+      },
+      "active_median_cos": {
+        "mean": 0.5465207497278849,
+        "sd_ddof1": 0.01583146401513362,
+        "min": 0.5325065851211548,
+        "max": 0.5636933445930481
+      },
+      "active_opposed_count_frac": {
+        "mean": 0.03173759610127328,
+        "sd_ddof1": 0.0021654366995152454,
+        "min": 0.029449754585378456,
+        "max": 0.03375527426160337
+      },
+      "aggregate_cos": {
+        "mean": -0.31684303283691406,
+        "sd_ddof1": 0.019649795730131904,
+        "min": -0.33554670214653015,
+        "max": -0.29636716842651367
+      },
+      "shift": {
+        "per_seed": [
+          0.017394623280440946,
+          0.014397131445151867,
+          0.018279866524999466
+        ],
+        "mean": 0.016690540416864092,
+        "all_positive": true
+      },
+      "identity": {
+        "max_residual_conforming": 0.00793244370324897,
+        "n_conforming": 3,
+        "outlier_seeds": [],
+        "f_range_conforming": [
+          0.02817475424460454,
+          0.03533902989024331
+        ]
+      }
+    },
+    "muon": {
+      "per_seed": [
+        {
+          "seed": 42,
+          "active_fraction": 0.07821795968720775,
+          "active_median_cos": 0.5363443493843079,
+          "active_opposed_count_frac": 0.03510557110150089,
+          "aggregate_cos": -0.19282807409763336,
+          "onf_full": 0.6069343428794546,
+          "onf_active": 0.6301380688493509,
+          "npc_full": 0.9782924938519775,
+          "npc_active": 0.9775564460489297,
+          "parallel_mass_fraction": 0.038909412115613135,
+          "opposed_mass_inside_parallel": 0.0013145758406994303,
+          "identity_pred_active": 0.6315058648274526,
+          "identity_residual": -0.0013677959781017712
+        },
+        {
+          "seed": 123,
+          "active_fraction": 0.08183934576277932,
+          "active_median_cos": 0.5301661491394043,
+          "active_opposed_count_frac": 0.03914417699975687,
+          "aggregate_cos": -0.16314241290092468,
+          "onf_full": 0.6281200976044633,
+          "onf_active": 0.602821409671041,
+          "npc_full": 0.9760776480874185,
+          "npc_active": 0.9734034035119852,
+          "parallel_mass_fraction": 0.11515398425715478,
+          "opposed_mass_inside_parallel": 0.09471597505255713,
+          "identity_pred_active": 0.7098637349653932,
+          "identity_residual": -0.1070423252943522
+        },
+        {
+          "seed": 456,
+          "active_fraction": 0.08357044789780528,
+          "active_median_cos": 0.5206697583198547,
+          "active_opposed_count_frac": 0.036904761904761905,
+          "aggregate_cos": -0.13302326202392578,
+          "onf_full": 0.5772304838836194,
+          "onf_active": 0.5908771757178601,
+          "npc_full": 0.9819993256853701,
+          "npc_active": 0.9815920294087038,
+          "parallel_mass_fraction": 0.023356142487375647,
+          "opposed_mass_inside_parallel": 0.00015391967436393503,
+          "identity_pred_active": 0.5910347763346865,
+          "identity_residual": -0.00015760061682634774
+        }
+      ],
+      "onf_full": {
+        "mean": 0.6040949747891791,
+        "sd_ddof1": 0.02556334689605865,
+        "min": 0.5772304838836194,
+        "max": 0.6281200976044633
+      },
+      "onf_active": {
+        "mean": 0.6079455514127506,
+        "sd_ddof1": 0.02012578082491291,
+        "min": 0.5908771757178601,
+        "max": 0.6301380688493509
+      },
+      "npc_full": {
+        "mean": 0.9787898225415886,
+        "sd_ddof1": 0.002992000712341698,
+        "min": 0.9760776480874185,
+        "max": 0.9819993256853701
+      },
+      "npc_active": {
+        "mean": 0.9775172929898729,
+        "sd_ddof1": 0.004094453350647427,
+        "min": 0.9734034035119852,
+        "max": 0.9815920294087038
+      },
+      "parallel_mass_fraction": {
+        "mean": 0.059139846286714516,
+        "sd_ddof1": 0.04912905238716499,
+        "min": 0.023356142487375647,
+        "max": 0.11515398425715478
+      },
+      "active_fraction": {
+        "mean": 0.08120925111593079,
+        "sd_ddof1": 0.002731308653216763,
+        "min": 0.07821795968720775,
+        "max": 0.08357044789780528
+      },
+      "active_median_cos": {
+        "mean": 0.5290600856145223,
+        "sd_ddof1": 0.007895614836747309,
+        "min": 0.5206697583198547,
+        "max": 0.5363443493843079
+      },
+      "active_opposed_count_frac": {
+        "mean": 0.03705150333533989,
+        "sd_ddof1": 0.0020232978490432514,
+        "min": 0.03510557110150089,
+        "max": 0.03914417699975687
+      },
+      "aggregate_cos": {
+        "mean": -0.16299791634082794,
+        "sd_ddof1": 0.02990266787821414,
+        "min": -0.19282807409763336,
+        "max": -0.13302326202392578
+      },
+      "shift": {
+        "per_seed": [
+          0.023203725969896283,
+          -0.02529868793342227,
+          0.01364669183424072
+        ],
+        "mean": 0.0038505766235715777,
+        "all_positive": false
+      },
+      "identity": {
+        "max_residual_conforming": 0.0013677959781017712,
+        "n_conforming": 2,
+        "outlier_seeds": [
+          123
+        ],
+        "f_range_conforming": [
+          0.023356142487375647,
+          0.038909412115613135
+        ]
+      }
+    },
+    "_pooled": {
+      "f_mean_all": 0.04485430034608773,
+      "f_mean_conforming": 0.030794363563874317,
+      "n_runs": 6,
+      "n_conforming": 5,
+      "welch_full": {
+        "t": 5.421838575631083,
+        "p": 0.015041266150894643,
+        "groups": [
+          "adamw",
+          "muon"
+        ]
+      },
+      "welch_active": {
+        "t": 7.821664307735192,
+        "p": 0.005196543889221337,
+        "groups": [
+          "adamw",
+          "muon"
+        ]
+      }
+    }
+  },
+  "shape_deviation": {
+    "observed_gap": 0.37148437499999964,
+    "sigma": 0.02545584412271571,
+    "per_scale": {
+      "0.25": {
+        "normalized_min": 0.24326905437667584,
+        "normalized_max": 0.26739648703332247,
+        "exact_linear": 0.25,
+        "max_deviation_from_linear": 0.017396487033322472,
+        "deviation_nats": 0.006462523112769397,
+        "deviation_sigma": 0.25387188425633533,
+        "band_width_normalized": 0.02412743265664663,
+        "band_width_nats": 0.008962964240808955,
+        "band_width_sigma": 0.35209848856714154
+      },
+      "0.5": {
+        "normalized_min": 0.5105328319295456,
+        "normalized_max": 0.5381652164365991,
+        "exact_linear": 0.5,
+        "max_deviation_from_linear": 0.03816521643659909,
+        "deviation_nats": 0.014177781574689727,
+        "deviation_sigma": 0.5569558607580442,
+        "band_width_normalized": 0.02763238450705352,
+        "band_width_nats": 0.01026499908836245,
+        "band_width_sigma": 0.40324724801415646
+      }
+    }
+  }
 }

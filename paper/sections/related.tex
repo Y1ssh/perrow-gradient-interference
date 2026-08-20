@@ -1,49 +1,65 @@
 \section{Related Work}
 \label{sec:related}
 
-\paragraph{Multi-token prediction.} Predicting several future tokens jointly
-dates to blockwise-parallel decoding and ProphetNet \citep{qi2020prophetnet},
-and was revived as a pretraining objective by \citet{gloeckle2024mtp}, who attach
-$n$ \emph{independent output heads} to a shared trunk and report improved sample
-efficiency and up to $3\times$ faster inference via self-speculative decoding. Two
-properties of their result are central to ours: the heads are \emph{separate}
-(each future offset gets its own unembedding), and the benefit is
-\emph{increasingly useful for larger model sizes}. DeepSeek-V3
-\citep{deepseekv3} adopts sequential MTP modules at frontier scale; Medusa
-\citep{cai2024medusa} and related work add prediction heads primarily for
-speculative decoding \citep{samragh2025future}; and MuToR \citep{gerontopoulos2025mutor} interleaves
-learnable register tokens so a frozen backbone can predict future offsets without
-architectural change. Across this line, the auxiliary signal is given \emph{its
-own capacity}: separate heads, modules, or register tokens. The present work
-studies the opposite, minimal case, a single tied output embedding shared
-across horizons, precisely because it isolates the interference that
-separate-capacity designs avoid; a separate-head variant would localize whether
-the effect is intrinsic to head-sharing (we identify this as the primary future
+\paragraph{Multi-token prediction.} Predicting several future tokens jointly dates to blockwise-parallel decoding \citep{stern2018blockwise} and ProphetNet \citep{qi2020prophetnet}. It was revived as a pretraining objective by \citet{gloeckle2024mtp}, who attach $n$ \emph{independent output heads} to a shared trunk and report improved sample efficiency and up to $3\times$ faster inference via self-speculative decoding. Two
+properties of their result are central to ours. First, each horizon gets its own
+\emph{hidden state} and therefore its own logit vector, but the vocabulary
+projection is \emph{shared}: their architecture is a shared trunk, $n$ independent
+output heads implemented as transformer layers, and a single shared unembedding
+matrix. Second, the benefit is \emph{more useful as model size grows}. DeepSeek-V3
+\citep{deepseekv3} adopts sequential MTP modules at frontier scale and likewise
+shares the embedding and output head across depths, giving each depth its own
+transformer block and projection. Medusa
+\citep{cai2024medusa} is the exception in this list: each of its heads carries its
+own vocabulary projection. Such extra heads are added primarily for
+speculative decoding \citep{samragh2025future}. MuToR \citep{gerontopoulos2025mutor} interleaves
+learnable register tokens so future offsets can be predicted with no architectural
+change and negligible additional parameters. Across this line, the auxiliary signal is given \emph{its
+own capacity}: separate heads, modules, or register tokens. Note what this does and
+does not separate. In the shared-unembedding designs above, gradients from every
+horizon still land on the same rows of one projection matrix; what per-horizon heads
+remove is the requirement that a \emph{single} predictive distribution serve all
+horizons at once. Head-sharing therefore bundles two ingredients that can be
+separated: shared rows and a shared set of logits. The present work studies the
+minimal case in which both hold, a single set of logits produced by one tied
+projection serving every horizon. A separate-head variant would isolate the
+shared-label ingredient, since shared rows are present there too, and so would localize
+whether the effect is intrinsic to head-sharing (we identify this as the primary future
 experiment).
 
-\paragraph{Small-scale degradation of MTP.} \citet{zuhri2025top} document that
-multi-token objectives can \emph{hurt} next-token modeling at smaller scales, and
-propose token-order prediction as an alternative. This degradation is the failure
-mode we instrument; our contribution is not to add to the catalogue of when MTP
-helps or hurts, but to measure \emph{what the gradient geometry actually looks
-like} at the shared head when it hurts, and to show that the standard conflict
-diagnostic mischaracterizes it.
+\paragraph{Small-scale degradation of MTP.} Prior work documents small-scale degradation on
+\emph{downstream benchmarks}: \citet{gloeckle2024mtp} find multi-token prediction
+increasingly useful at larger sizes and report their gains on HumanEval and MBPP,
+while \citet{zuhri2025top} report inconsistent improvements and underperformance on
+standard NLP benchmarks, and propose token-order prediction as an alternative.
+Whether that degradation also appears in next-token validation loss itself has not,
+to our knowledge, been reported at this scale. We measure it directly and find
+${+}0.39$ nats. Both papers' smallest models ($300$M and $340$M) also sit above the
+$124$M at which we measure the gap, so this is a distinct observation rather than a
+restatement of theirs. Our contribution is not to add to the catalogue of when MTP helps or hurts. It is to measure \emph{what the gradient geometry actually looks like} at the shared head when it hurts, and to show that the standard conflict diagnostic mischaracterizes it.
 
 \paragraph{Gradient conflict and surgery.} A large multi-task literature treats
 negative inter-task gradient cosine as the signature of interference and
 projects it away: PCGrad \citep{yu2020pcgrad}, Gradient Vaccine
 \citep{wang2021gradvaccine}, and gradient-similarity loss weighting
 \citep{du2018auxsim}, with later refinements \citep{sun2023drmgf,shi2023recon}.
+Related optimizers reformulate the conflict rather than projecting it directly:
+CAGrad \citep{liu2021cagrad} minimizes a worst-case objective within a neighborhood
+of the average gradient, and Nash-MTL \citep{navon2022nashmtl} treats the update as a
+bargaining game among tasks.
 These methods operate on \emph{global} (flattened) gradient vectors and target
-gradient \emph{direction}. A parallel line instead balances gradient
+gradient \emph{direction}. That the granularity of the measurement matters has been
+noted: \citet{liu2025modular} report that model-level conflict resolution is
+poorly suited to their task and detect conflicts at a finer-grained modular
+level instead. Their remedy is finer-grained surgery. Our result is that at the
+output head finer-grained surgery is inert, so the granularity fix does not
+carry over here. A parallel line instead balances gradient
 \emph{magnitude}: GradNorm \citep{chen2018gradnorm} dynamically tunes per-task
 gradient norms rather than reprojecting directions. This magnitude-versus-direction
 distinction is central to our findings, which locate the operative structure in
 per-row gradient norms rather than in the direction the aggregate cosine reports.
-Independently, \citet{jiang2023forkmerge} argue that optimization-based
-gradient-coordination methods can overlook auxiliary-target generalization, so
-that gradient-conflict signals do not by themselves determine negative transfer.
-This connects to a broader empirical result: \citet{kurin2022unitary} and
+The \citet{jiang2023forkmerge} result noted in Section~\ref{sec:intro} points the
+same way from the auxiliary-task side. This connects to a broader empirical result: \citet{kurin2022unitary} and
 \citet{xin2022mtohelp} find that plain loss-summing (unitary scalarization)
 matches or beats specialized multi-task optimizers, which appear to act largely
 as regularizers rather than by resolving genuine conflict. Our surgery-null
@@ -69,18 +85,29 @@ rank-$d$ projection; ours is the gradient deposited \emph{on} the weight matrix
 $W$ and its per-row structure, so the two results concern different tensors. Our
 result is the direction-space, \emph{multi-loss} complement: we ask what a cosine
 diagnostic reports when two losses share that head, and find their per-row
-directions align while a high-norm opposed minority sets the aggregate (measured
-directly via the per-row gradient norms; see Section~\ref{sec:emergent}).
+directions align while a high-norm opposed minority sets the aggregate
+(Section~\ref{sec:mechanism}). The same group has since proposed separating a
+transformer's state-keeping and prediction roles into two computation streams,
+reporting a difference in the gradients the design entails
+\citep{monea2026sps}. That is a design response; ours is a measurement of what
+a conflict diagnostic reports at the shared head. The two are complementary
+rather than competing.
 
-\paragraph{Positioning.} Relative to prior work, (i) we provide a per-row
-gradient measurement at the tied output projection that a global cosine misses;
-(ii) we show the next-token degradation of small-scale shared-head multi-token
-training, a documented but unexplained failure mode \citep{zuhri2025top}, co-occurs with \emph{aligned} per-row gradients rather than with broad directional
-conflict, the aggregate being set by a high-norm opposed minority (measured
-directly via the per-row gradient norms); and (iii) our capacity-separated auxiliary
-\emph{reduces} the next-token cost in the same spirit as capacity-added fixes,
-though in our runs it does not fully recover the CE-only baseline within noise
-(neither the standard nor a tuned variant); our contribution is not a fix but the
-\emph{diagnostic mechanism}: why conflict-based remedies act on a mass-dominant
-but causally-inert opposition here, and why capacity separation is the lever that
-helps.
+\paragraph{Positioning.} Relative to prior work, three points of contrast matter most; the paper's full
+contributions are the six listed in Section~\ref{sec:intro}.
+\begin{enumerate}
+\item[(i)] We provide a per-row gradient measurement at the tied output projection
+      that a global cosine misses.
+\item[(ii)] We show that the next-token degradation of small-scale shared-head
+      multi-token training, whose downstream counterpart is documented but
+      unexplained \citep{gloeckle2024mtp,zuhri2025top}, co-occurs with \emph{aligned} per-row gradients
+      rather than with broad directional conflict. The aggregate is set by a
+      high-norm opposed minority.
+\item[(iii)] Our standard capacity-separated auxiliary \emph{reduces} the next-token
+      cost, in the same spirit as capacity-added fixes, though in our runs it
+      does not fully recover the CE-only baseline within noise. This holds
+      demonstrably for the standard variant; the tuned variant sits below our detection floor (Section~\ref{sec:interventions}) and is inconclusive.
+\end{enumerate}
+Our contribution is therefore not a fix but the \emph{diagnostic mechanism}: why
+conflict-based remedies act on a high-magnitude but causally inert opposition
+here, and why the auxiliaries that help are the ones that avoid the shared head.

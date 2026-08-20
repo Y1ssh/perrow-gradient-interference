@@ -31,8 +31,8 @@ for s in sorted(runs):
 print("\n=== ANCHOR GATE (±0.04 nats) ===")
 if 1.0 in runs:
     b42 = runs[1.0]['final_ce_t1']
-    print(f"  scale=1.0 final CE = {b42:.4f}  vs committed B@42 = 4.390  "
-          f"-> {'PASS' if abs(b42-4.390)<=0.04 else 'CHECK'}")
+    print(f"  scale=1.0 final CE = {b42:.4f}  vs committed B@42 = 4.399  "
+          f"-> {'PASS' if abs(b42-4.399)<=0.04 else 'CHECK'}")
 print(f"  scale=0.0 final CE = {base:.4f}  vs committed A (mean 3.985 ±2sd≈0.028)  "
       f"-> {'PASS' if abs(base-3.985)<=0.04 else 'CHECK (state seed-42 A if recoverable)'}")
 

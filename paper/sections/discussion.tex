@@ -4,76 +4,193 @@
 \paragraph{What the measurements establish.} In this regime (a single shared tied output projection, ${\leq}350$M, undertrained) the standard cosine
 conflict diagnostic misreads the CE/MTP interaction. On the rows that carry a
 target the per-row gradients are aligned (active-row median cosine ${\approx}0.53$,
-${\approx}3\%$ opposed; the full-vocabulary median is $+1$ only because
-${\approx}88$--$92\%$ of rows are scalar multiples by construction), the aggregate
-is $\approx 0$ or negative, and the two decouple during training. Instrumenting the
-per-row norms shows the aggregate is set by a high-norm opposed minority
-($\approx0.3\%$ of all rows, carrying $60$--$69\%$ of the mass), not by disjoint
-support: the losses load the same rows (norm-profile cosine $0.98$) but oppose on the few rows that
-dominate the weighted sum. Crucially, the next-token degradation is large and
-unambiguous, yet neutralizing that directional opposition does not remove it: the
-surgery baselines in Appendix~\ref{app:surgery} recover nothing, so the opposed
-minority the cosine detects is not the fixable lever. The lever that helps is
-capacity separation, though in our runs it reduces rather than eliminates the gap.
+${\approx}3$--$4\%$ opposed; the full-vocabulary median is $+1$ only because
+${\approx}92\%$ of rows are scalar multiples by construction), the aggregate
+is $\approx 0$ or negative, and the two decouple during training. Instrumenting the per-row norms shows the aggregate is set by a high-norm opposed minority ($\approx0.3\%$ of all rows, carrying $60$--$69\%$ of the mass), not by disjoint support. The losses load the same rows (norm-profile cosine $0.98$) but oppose on the few rows that dominate the weighted sum. Crucially, the next-token degradation is large and
+unambiguous, yet neutralizing that directional opposition does not remove it. The surgery
+baselines in Appendix~\ref{app:surgery} recover nothing, which is consistent
+with the opposed minority not being the fixable lever. Under the soft-label reading
+this is expected for a sharper reason than opposition that carries the mass yet is
+causally inert: the objective's \emph{minimizer has moved} to the mixture $q^{*}$,
+and reprojecting gradients does not move it back. For symmetric PCGrad the argument
+is exact: at a stationary point of the summed loss $g_{\text{CE}} = -g_{\text{MTP}}$,
+both project to zero, and the mixture optimum stays stationary. Our asymmetric
+head-only Gram--Schmidt is not a fixed point of those dynamics in the same way, so
+there the empirical null is the evidence, and the natural reading is that a head-only
+correction cannot undo a shifted optimum while the trunk keeps receiving the full
+mixture gradient and shaping representations toward $q^{*}$. Capacity separation helps precisely because the auxiliary no longer forces one set of logits to serve every horizon,
+though in our runs it reduces rather than eliminates the gap.
+
+\paragraph{The stop-gradient result cuts the other way.}
+One intervention appears to contradict the shifted-optimum account, and we state it
+plainly rather than leave it to a reader. If the head's blended target were the
+whole story, then $\mathrm{sg}(W)h$ should help: the head is freed to minimize pure
+next-token cross-entropy given the representation it is handed. Instead
+stop-gradient is the worst of the auxiliary conditions in
+Table~\ref{tab:conditions} ($4.493$, $\Delta{+}0.508$ against shared MTP's
+$\Delta{+}0.392$); only the gradient-surgery and optimizer-coverage variants of
+Appendix~\ref{app:surgery} sit higher. The reason we cannot read this as a refutation is
+that the probe moves two quantities at once. It removes the head's mixture target,
+which the account predicts should help, and it also stops the head from co-adapting
+to a trunk that is still being shaped by the full mixture gradient, which should
+hurt. The observed sign says the second effect is the larger one; it does not say
+the first is absent. Separating them needs an intervention that removes the mixture
+target from the head \emph{without} decoupling head and trunk, which is what the
+separate-head variant in \emph{Future work} does. Until then we treat the
+stop-gradient number as evidence against the naive head-detach fix and as
+uninformative about the mixture account itself.
+
+Beyond the diagnostic result, an exact rewrite shows the shared-head objective is
+soft-label cross-entropy toward a next-and-future-token mixture
+(Section~\ref{sec:softlabel}), and a zero-parameter estimate of the implied KL cost,
+computed entirely from the CE-only model's own distributions, matches the observed
+degradation within run noise at the lower auxiliary weights while the full-mixture
+variant reproduces ${\approx}88$--$89\%$ of the matched within-sweep gap at full weight, leaving a
+${\approx}0.04$-nat residual attributable to the estimator's remaining downward
+proxy bias and/or a small genuine non-mixture component
+(Section~\ref{sec:mixturetest}). The anchored weight sweep shows the degradation
+scales with the auxiliary weight as this account predicts, as a weight-proportional
+interference account would also predict; the two shapes are indistinguishable at our
+noise level.
 
 \paragraph{Two failure modes, one instrument.} The aggregate cosine misleads in
 two opposite directions depending on the optimizer, and the paper's central claim
 is that both are failures of the \emph{same} diagnostic. Under Muon the aggregate
-is ${\approx}{-}0.08$, close enough to zero that a conflict diagnostic reads
+is ${-}0.08$ to ${-}0.19$ across measurement batches, close enough to zero at its shallowest reading (${-}0.08$) that a conflict diagnostic reads
 ``no interference,'' a \emph{false negative}: the next-token loss degrades by
-$0.39$ nats regardless. Under AdamW the aggregate is ${\approx}{-}0.28$,
-negative enough to trip a conflict flag, but this is a \emph{misleading positive}:
-gradient surgery that projects out exactly this opposition recovers nothing
-(Appendix~\ref{app:surgery}), because the opposition is mass-dominant yet causally
-inert. A practitioner reading only the aggregate would conclude ``safe to add
-MTP'' under Muon and ``apply surgery'' under AdamW, and both conclusions are
-wrong. The instrument does not merely lose power; it points the wrong way, and
+$0.39$ nats regardless. Under AdamW the aggregate is ${-}0.28$ (${-}0.30$ to
+${-}0.34$ over the norm-committing seeds), negative enough to trip a conflict flag,
+and the surgery runs are \emph{consistent with} a false positive: projecting out
+exactly this opposition recovers nothing (Appendix~\ref{app:surgery}). Those runs are
+single-seed, with a drift envelope ($0.02$--$0.04$ nats) that overlaps the effects
+they would need to resolve, so this arm is suggestive rather than established; the
+matched-seed replication that would settle it is future item~3 below. A practitioner reading only the head's aggregate would conclude
+``safe to add MTP'' under Muon and ``apply surgery'' under AdamW, and both
+conclusions are wrong, the first demonstrably and the second on suggestive
+evidence. The false negative is specific to the head: as
+Section~\ref{sec:general} notes, an all-parameter aggregate would very
+likely read clearly negative under both optimizers, so the misread is of
+\emph{where} interference lives rather than of whether any is present. The instrument
+does not merely lose power; it points the wrong way, and
 which way depends on an optimizer choice unrelated to whether interference is
 present. This is why the per-row and per-norm decomposition, not a scalar
 threshold on the aggregate, is what the regime requires.
 
-\paragraph{What they do not establish.} We do not show that MTP \emph{as
-practiced} (with separate per-horizon heads) degrades next-token modeling;
-our formulation is a single tied head, and separate-head designs give the
-auxiliary its own capacity precisely so that the losses cannot compete on shared
-rows. We do not establish causation between the norm-weighted opposition and the
-loss increase; we show they co-occur and that interventions behave as a
-norm-weighting/capacity account predicts (in particular, surgery that removes the
-opposition does not remove the degradation). And the effect lives in an
-undertrained, small-batch, ${\leq}350$M regime where MTP is already documented to
-underperform \citep{zuhri2025top}.
+\section{Limitations}
+\label{sec:limitations}
+We state the boundaries of the result under four headings: what the scope of the
+claim is, what is not established about mechanism, what biases the estimator
+carries, and where the statistics are thin.
 
-\paragraph{Future work.} Three experiments would broaden the scope from ``the
-diagnostic misreads this regime'' toward a causal, general statement: (1) a
-\textbf{separate-head MTP} variant, to localize whether the degradation is
-intrinsic to head-sharing; (2) \textbf{$n{=}3$ at 350M} plus a 124M CE-only
-per-row baseline, to turn the single-seed scale observation into a measured
-trend; and (3) \textbf{matched-seed, single-pass gradient surgery} at $n{=}3$, to
-remove the numerical-drift caveat. A further question, \emph{which} norm
-structure produces the collapse, is settled directly here: instrumenting the per-row norms
-(\texttt{measure\_norm\_support.py}, $n{=}3$ seeds per optimizer) shows the two
-losses load the same rows (norm-profile cosine $0.98$) while a high-norm opposed
-minority carries the majority of the mass (opposed-norm fraction $0.60$/$0.69$),
-so the mechanism is norm-weighted cancellation, not support divergence
-(Section~\ref{sec:emergent}, Figure~\ref{fig:normsupport}).
+\paragraph{Scope.} Every measurement is on a single shared tied output projection
+at ${\leq}350$M parameters, in an undertrained, small-batch regime where MTP is
+already documented to underperform \citep{gloeckle2024mtp,zuhri2025top}. We do not show that MTP
+\emph{as practiced} (with separate per-horizon heads) degrades next-token
+modeling. The reason separate heads should help is not that they stop the losses
+from sharing rows: the standard designs share one unembedding matrix, so per-row
+gradient mixing persists there. It is that per-horizon logits remove the
+constraint that one distribution serve every horizon, which is precisely the
+optimum shift of Equation~\ref{eq:softlabel}. That makes the separate-head
+experiment a clean test of our own account rather than a mere scaling check, since
+it holds shared rows fixed and varies only the shared-label ingredient. The
+outcome measure is also narrow: we record next-token validation loss, not downstream
+task performance, so ``degrades'' should be read as that quantity and no more.
+
+\paragraph{Mechanism.} We do not establish causation between the norm-weighted opposition and the loss increase. We show they co-occur, and that interventions behave as a shifted-optimum account predicts: surgery that removes the opposition does not remove the degradation, and separating capacity helps.
+A related gap is one of timing rather than of inference. The per-row and per-norm
+measurements are taken early in training, at step $1{,}000$, while the loss
+comparisons are at $30{,}517$ steps; late-training persistence of the alignment is
+measured directly only at 350M, on a single seed. The aligned-gradient state and
+the degraded-loss state are therefore never exhibited in the same measurement at
+124M, and the connection between them rests on that persistence rather than on a
+co-located observation.
+
+\paragraph{Estimator.} The zero-parameter prediction sits below the observed gap
+by $0.035$--$0.046$ nats: within its stated biases, but also within what a small
+genuine interference residual would produce. We treat the mixture account as the
+leading candidate, not as confirmed, and we name the residual rather than assign
+it. The estimate is also truncated rather than fully marginalized, and truncation
+biases it upward relative to full marginalization, so a fuller estimate would
+lower the prediction and \emph{widen} the residual rather than close it.
+
+\paragraph{Which gradient we measure.} The head is weight-tied, so the gradient our
+instrument reads sums the output-projection path and the embedding path
+(Section~\ref{sec:instrument}). The embedding path deposits only on rows that already
+carry a target, so it lands exactly on the active rows every statistic here is
+computed over, and we do not bound its share. Two measurements would close this, and neither needs new
+training. One is to recompute the projection path alone, taking the gradient with
+respect to the logits and forming $\sum_t \delta_i(t) h_t$ directly. The other is to
+commit per-row norms from an untied run, where the head tensor receives the
+projection path only. The existing untied run cannot serve, because it committed
+full-vocabulary fractions rather than per-row arrays.
+
+\paragraph{Statistics and instrument caveats.} Seed counts are small and uneven: $n{=}5$ for CE-only and the standard $G_{\text{nce}}$ auxiliary, $n{=}3$ for the other four conditions (Table~\ref{tab:conditions}). The auxiliary-weight sweep of Section~\ref{sec:mixturetest} is a single seed throughout, so the strongest quantitative claim in the paper carries no across-seed spread of its own. The untied-head check is one run at $500$ steps
+against $30{,}517$ elsewhere. Finally, the full-vocabulary form of the CE-vs-L1
+control is threshold-sensitive and we do not rest calibration on it. On the
+committed diagnostic run the fraction of rows with $|\cos|$ above $0.1$, $0.2$,
+$0.3$ and $0.5$ is $74.9\%$, $35.2\%$, $0.42\%$ and $0$: nearly $35\%$ of
+rows fall between the $0.2$ and $0.3$ bins, so the above-$0.3$ figure is
+sensitive to exactly where the cut is placed, and it reads $36.2\%$ on the sweep
+snapshot. That snapshot committed only these binned fractions, not the underlying per-row cosines. We therefore cannot say whether the two runs differ by a small shift near this quantile or more substantially, and we do not claim the discrepancy is explained. The shape of that distribution is itself unexplained, and we flag it rather than
+account for it. Two comparisons bound the problem. Against isotropic vectors in
+$d{=}768$ the cosine standard deviation is $0.036$, so almost no rows should clear
+$0.1$, yet $74.9\%$ do: the rows are far more aligned than chance. But the profile is
+also \emph{sharper} than any low-dimensional-span model predicts. Suppose both gradients were random within a shared
+$k$-dimensional subspace. Any $k$ that reproduces the
+above-$0.1$ fraction (within $5$ points of the observed $74.9\%$) forces the ratio of
+the above-$0.2$ to the above-$0.3$ fraction to at most ${\approx}2$. The observed
+ratio is $84$. Larger $k$ can produce a sharp ratio, but only by putting far too
+little mass above $0.1$. The
+best-fitting single $k$ is $23$, and it still overpredicts the above-$0.3$ fraction by
+a factor of ${\approx}37$. So neither a chance model nor a shared-span model
+reproduces the cliff, and we do not have per-row cosines from this run to diagnose it.
+The control's role is to show that an \emph{unrelated} loss pair yields a near-zero
+aggregate ($0.002$), not to quantify a per-row distribution. The unexplained shape
+therefore does not bear on the calibration claim. It remains a loose end: committing
+per-row cosines for the control is the measurement that would close it. What both runs agree on is the property the control
+exists to establish: the aggregate cosine is near zero either way ($+0.002$ and
+$-0.011$). This is why the active-row control of Section~\ref{sec:calib} is the
+one we report.
+
+\paragraph{Future work.} Five directions would broaden the scope from ``the diagnostic misreads this
+regime'' toward a causal, general statement.
+\begin{enumerate}
+\item[(1)] A \textbf{separate-head MTP} variant, to localize whether the
+      degradation is intrinsic to head-sharing.
+\item[(2)] A \textbf{co-located measurement} at $30{,}517$ steps plus a 124M
+      CE-only per-row baseline, to replace the timing assumption
+      noted under \emph{Mechanism} above with a direct observation, and $n{=}3$ at
+      350M to turn the single-seed scale observation into a measured trend.
+\item[(3)] \textbf{Matched-seed, single-pass gradient surgery} at $n{=}3$, to
+      remove the numerical-drift caveat.
+\item[(4)] A \textbf{tighter KL estimate} (full marginalization or larger $k$,
+      and better-trained proxy models), to bound the $0.035$--$0.046$-nat
+      residual from the prediction side rather than the measurement side. The
+      highest-value single piece is \textbf{estimating $P_3$ directly} instead of
+      substituting $P_2$. That is the one bracket arm whose direction we have not
+      bounded. Our own offset-3 cross-entropies suggest the substitution biases the
+      prediction downward, so removing it could shrink the residual rather than
+      merely bound it.
+\item[(5)] \textbf{Committing per-row cosines for the control} at both
+      checkpoints, which is what would settle the threshold-sensitivity
+      question raised under \emph{Statistics and instrument caveats} above. Both snapshots are preserved,
+      but neither stores the per-row array.
+\end{enumerate}
 
 \section{Conclusion}
 \label{sec:conclusion}
 Cosine similarity between task gradients is the default instrument for detecting
-interference in multi-task and auxiliary-loss training. We showed that at a
-language model's shared, tied output projection this instrument is misleading:
-the per-row CE and MTP gradients are aligned in direction on the rows that carry a
-target (active-row median cosine ${\approx}0.53$; the full-vocabulary median is
-$+1$ because most rows are scalar multiples by construction), the aggregate cosine
-is driven negative by a high-norm opposed minority ($\approx0.3\%$ of rows carrying
-most of the mass) rather than by a broad directional conflict, and the two metrics
-decouple during training.
-Adding the shared auxiliary degrades next-token loss substantially, and
-neutralizing the measured opposition does not repair it, so the degradation is
-not the directional conflict a cosine diagnostic would report. The aggregate is
+interference in multi-task and auxiliary-loss training. We showed that at a language model's shared, tied output projection this instrument is misleading, in three respects. The per-row CE and MTP gradients are aligned in direction on the rows that carry a target (active-row median cosine ${\approx}0.53$; the full-vocabulary median is $+1$ because most rows are scalar multiples by construction). The aggregate cosine is driven negative by a high-norm opposed minority ($\approx0.3\%$ of rows carrying most of the mass), not by a broad directional conflict. And the two metrics decouple during training.
+Adding the shared auxiliary degrades next-token loss substantially, and the
+surgery baselines we ran, single-seed and reported in
+Appendix~\ref{app:surgery}, do not repair it. The aggregate is
 set by per-row gradient norms, not by the per-row directions the cosine averages,
 a distinction that explains why conflict-targeted surgery does not help here and
-why capacity separation does. We deliver the result
+why capacity separation does. An exact rewrite of the objective supplies the
+complementary positive account: the shared head optimizes cross-entropy against a
+next-and-future-token mixture, so its optimum has moved, and a zero-parameter estimate of the
+resulting KL cost reproduces most of the measured degradation, undershooting it by
+$0.035$--$0.046$ nats at full auxiliary weight. On this reading the degradation is a predictable consequence of the objective rather than a pathology of optimization. Gradient surgery is then inert: exactly so for symmetric projection, and empirically so for the head-only variants we test, where the trunk continues to receive the full mixture gradient. We deliver the result
 on a fully reproducible testbed with a committed statistics script, and we are
 explicit about the shared-head, small-scale scope and the experiments that would
 extend it.

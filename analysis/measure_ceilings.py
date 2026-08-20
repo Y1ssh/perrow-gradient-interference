@@ -125,7 +125,8 @@ results['ceiling_ce_vs_ce_ceonly']  = ce_vs_ce_ceiling(ce_model, bb)
 results['ceiling_ce_vs_ce_mtptrained'] = ce_vs_ce_ceiling(mtp_model, bb)
 print(f"CE-vs-CE ceiling (active median): CE-only {results['ceiling_ce_vs_ce_ceonly']['active_median_cos']:.3f}, "
       f"MTP-trained {results['ceiling_ce_vs_ce_mtptrained']['active_median_cos']:.3f}  "
-      f"(CE-vs-MTP active median ~0.53 -> {'BELOW ceiling, real structure' if results['ceiling_ce_vs_ce_ceonly']['active_median_cos']>0.7 else 'near ceiling'})")
+      f"(this is a FLOOR, not a ceiling: same loss on disjoint data is anti-aligned on "
+      f"active rows, so CE-vs-MTP at ~0.53 is specific to the shared-batch/shared-logits pairing)")
 print(f"  active-row criterion (CE-vs-CE): {results['ceiling_ce_vs_ce_ceonly']['active_criterion']} "
       f"(NOT the 0.75 norm-ratio test, which needs an MTP gradient)")
 

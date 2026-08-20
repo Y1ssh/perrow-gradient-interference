@@ -215,9 +215,18 @@ _partial_*.json
 .instance_log
 *:Zone.Identifier
 *Zone.Identifier
-# build/latex intermediates
-paper/*.aux
-paper/*.log
-paper/*.out
-paper/*.bbl
-paper/*.blg
+# build/latex intermediates (venue builds live in paper/venues/<venue>/)
+paper/**/*.aux
+paper/**/*.log
+paper/**/*.out
+paper/**/*.bbl
+paper/**/*.blg
+paper/venues/*/log.txt
+
+# analysis/stats.py defaults --out to '.', so running it from the repo root
+# drops duplicates beside the tracked copies in analysis/
+/stats_results.json
+/stats_table.md
+
+# Windows mark-of-the-web artifacts
+*Zone.Identifier*

@@ -12,22 +12,16 @@ echo "== committed instance log =="
 [ -f .instance_log ] && echo "  .instance_log" || echo "  (none)"
 if [ "$APPLY" = "--apply" ] && [ -f .instance_log ]; then git rm --cached .instance_log 2>/dev/null || rm -f .instance_log; fi
 
-echo "== placeholder git identity in setup.sh =="
-grep -n 'yash@research.local\|user.email\|user.name' setup.sh || echo "  (none)"
-echo "  -> remove the hardcoded 'git config user.email/name' lines; let the"
-echo "     cloning user set their own identity."
+echo "== live git identity in setup.sh (must be none; commented example is fine) =="
+grep -n '^[[:space:]]*git config user\.\(email\|name\)' setup.sh || echo "  (none)"
 
-echo "== stray phase_e / phase_f result dirs (never populated) =="
-grep -n 'phase_e\|phase_f' setup.sh || echo "  (none in setup.sh)"
+echo "== stray phase_f references (no such experiment exists) =="
+grep -rn 'phase_f' setup.sh experiments measurement analysis 2>/dev/null || echo "  (none)"
 
-echo "== recommended .gitignore additions =="
-cat <<'EOF'
-  .instance_log
-  *Zone.Identifier
-  __pycache__/
-  *.pyc
-  .venv/
-EOF
+echo "== .gitignore coverage (all of these should already be present) =="
+for pat in '.instance_log' '*Zone.Identifier' '__pycache__/' '*.py[codz]' '.venv'; do
+  if grep -qxF "$pat" .gitignore; then echo "  ok   $pat"; else echo "  MISSING  $pat"; fi
+done
 
 echo
 if [ "$APPLY" = "--apply" ]; then echo "Applied deletions. Review 'git status' and commit."

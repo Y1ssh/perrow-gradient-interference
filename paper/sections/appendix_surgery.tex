@@ -1,18 +1,39 @@
-\section{Gradient-surgery baselines (single-seed; reported for completeness)}
+\section{Surgery and control baselines (single-seed; reported for completeness)}
 \label{app:surgery}
 
 We ran conflict-targeted gradient-surgery methods on the shared-MTP variant to
 test directly whether removing directional conflict recovers the baseline.
-\textbf{We do not rest any claim in the main text on these runs}, for three
-reasons stated up front: (i) each is a \textbf{single seed} (seed 42); (ii) the
-PCGrad baseline operates on \textbf{all parameters}, whereas per-row Gram--Schmidt
-and Scatter operate on the \textbf{output head only}, so they are not strictly
-comparable; and (iii) surgery uses \textbf{two backward passes} under bf16 (versus
-the fused single pass of the main runs), introducing a ${\sim}0.02$--$0.04$ nat
-numerical drift comparable to the smaller surgery effects. With those caveats, the
-pattern is uniform: no surgery method recovers the CE-only baseline
-($\text{A} = 3.985$), and none improves meaningfully on the matched shared-MTP
-seed ($\text{B@42} = 4.390$).
+\textbf{We do not rest the paper's diagnostic result on these runs}; we read
+them as consistent-with rather than as evidence, for three
+reasons stated up front.
+\begin{enumerate}
+\item[(i)] Each is a \textbf{single seed} (seed 42).
+\item[(ii)] The PCGrad baseline operates on \textbf{all parameters}, whereas
+      per-row Gram--Schmidt and Scatter operate on the \textbf{output head
+      only}, so they are not strictly comparable.
+\item[(iii)] Surgery uses \textbf{two backward passes} under bf16, versus the
+      fused single pass of the main runs, introducing a ${\sim}0.02$--$0.04$ nat
+      numerical drift comparable to the smaller surgery effects.
+\end{enumerate}
+With those caveats, the pattern is uniform: no surgery method recovers the
+CE-only baseline ($\text{A} = 3.985$), and none improves on the matched
+shared-MTP seed ($\text{B@42} = 4.399$). Two of them make it measurably worse.
+Per-row Gram--Schmidt at $+0.018$ sits inside the $0.02$--$0.04$ nat drift
+envelope, so we read it as no recovery. Scatter at $+0.058$ and PCGrad at
+$+0.145$ are outside that envelope, and PCGrad and Pure-Muon also act on all
+parameters rather than the head alone. We report the worsening as measured and
+do not explain it: removing the opposed component discards gradient magnitude
+that the losses agree on, but we have not isolated that from the optimizer
+coverage difference, so the direction is established and the cause is not.
+
+The three surgery methods differ in what they do to the conflicting component. PCGrad
+\citep{yu2020pcgrad} projects each task gradient onto the normal plane of the other
+whenever their inner product is negative. Per-row Gram--Schmidt applies the same idea
+row by row at the head, removing from the MTP row-gradient its component along the
+CE row-gradient wherever the two oppose. Scatter instead zeroes the MTP gradient on
+every opposed row and rescales the surviving rows so that the total MTP gradient norm
+is preserved, redistributing the removed magnitude onto the aligned rows rather than
+discarding it.
 
 \begin{table}[h]
 \centering
@@ -21,30 +42,74 @@ seed ($\text{B@42} = 4.390$).
 Method & Acts on & Final val loss & $\Delta$ vs B@42 & $\Delta$ vs A \\
 \midrule
 CE only (A, ref)            & ---        & 3.985 & ---     & 0.000 \\
-shared MTP (B@42)           & ---        & 4.390 & 0.000   & $+0.405$ \\
-Per-row Gram--Schmidt       & head only  & 4.418 & $+0.027$ & $+0.432$ \\
-Scatter                     & head only  & 4.458 & $+0.067$ & $+0.472$ \\
-PCGrad                      & all params & 4.544 & $+0.154$ & $+0.559$ \\
-Pure-Muon (all 2D in Muon)  & all params & 4.556 & $+0.166$ & $+0.571$ \\
+shared MTP (B@42)           & ---        & 4.399 & 0.000   & $+0.414$ \\
+Per-row Gram--Schmidt       & head only  & 4.418 & $+0.018$ & $+0.432$ \\
+Scatter                     & head only  & 4.458 & $+0.058$ & $+0.472$ \\
+PCGrad                      & all params & 4.544 & $+0.145$ & $+0.559$ \\
+Pure-Muon                   & all params & 4.556 & $+0.157$ & $+0.571$ \\
 \bottomrule
 \end{tabular}
-\caption{Gradient-surgery baselines on shared MTP (seed 42). Every method leaves
+\caption{No surgery variant recovers the CE-only baseline. Surgery and control baselines on shared MTP (seed 42). ``Pure-Muon'' places
+every 2D parameter under Muon, including the embeddings and output head that the
+hybrid recipe assigns to Adam, so it is an optimizer-coverage variant rather than a
+surgery method. Every method leaves
 the loss at or above the shared-MTP baseline; the per-row Gram--Schmidt effect
-($+0.027$) sits inside the two-pass drift envelope, so we treat it as ``no
-recovery,'' not as a measured improvement.}
+($+0.018$) sits inside the two-pass drift envelope, so we treat it as ``no
+recovery,'' not as a measured effect. Deltas are computed from unrounded losses;
+the displayed operands are rounded to three decimals, so a displayed subtraction
+can differ by $0.001$. Note the two reference columns are not on the same footing:
+$\Delta$ vs B@42 is a matched-seed comparison, whereas $\Delta$ vs A uses the
+five-seed CE-only mean ($3.985$) against single-seed surgery runs. Against the
+matched CE-only seed ($4.003$) every $\Delta$ vs A would be $0.018$ smaller, so
+that column reads slightly large relative to a like-for-like pairing.}
 \label{tab:surgery}
 \end{table}
 
-This is what a norm-weighting/capacity account predicts, and it is stronger than
+The uniform non-recovery is what a norm-weighting/capacity account predicts. Under the soft-label reading of Section~\ref{sec:softlabel} it has a sharper explanation still: the objective's minimizer has moved, and reprojecting gradients does not move it back (exact for symmetric projection, empirical for the asymmetric head-only variants tested here; Section~\ref{sec:discussion}). It
+is stronger than
 ``nothing to project away.'' The opposed rows carry the majority of the
-gradient-magnitude mass ($60$--$69\%$; Section~\ref{sec:emergent}), and a
+gradient-magnitude mass ($60$--$69\%$; Section~\ref{sec:mechanism}), and a
 projection acts on that mass-weighted vector, so there was substantial opposition
 to remove; per-row Gram--Schmidt on the head targets exactly those rows and still
 leaves the loss at the shared-MTP baseline. The measured opposition is
-mass-dominant yet causally inert. A matched-seed,
-single-pass replication at $n{=}3$ (identified in Section~\ref{sec:discussion})
+real and high-magnitude, yet causally inert. A matched-seed,
+single-pass replication at $n{=}3$ (identified in Section~\ref{sec:limitations})
 would remove the drift caveat and is the right way to upgrade this from a
-consistent-with observation to evidence. The AdamW negatives from the same phase
-(A $=3.743/3.754$, B $=4.149/4.153$, $\text{G}_\text{nce}=3.778/3.781$ across seeds
-42/123) reproduce the ordering under a second optimizer and are included in
-\texttt{results/phase\_c/}.
+consistent-with observation to evidence. A second-optimizer replication (AdamW; \texttt{results/phase\_c/}) reproduces the
+\emph{ordering} at the same scale and budget: CE-only $=3.743/3.754$, shared MTP
+$=4.149/4.153$, $\text{G}_\text{nce}=3.778/3.781$ across seeds $42/123$, so shared
+MTP again degrades CE-only (here by ${\approx}0.40$ nats) and the
+capacity-separated auxiliary again lands between them. These runs use the same
+124M model, the same $30{,}517$ steps and $500$M-token FineWeb-Edu pool, and the
+same $16 \times 1024$ batch as the Muon runs, but a \emph{different optimizer
+recipe}: plain AdamW at $3 \times 10^{-4}$ on \emph{all} parameters, cosine-decayed
+to $10\%$ of base with no weight decay, against the Muon hybrid used everywhere else
+(Muon on the 2D hidden weights at a \emph{flat} $\mathrm{lr}{=}0.02$, $\mathrm{wd}{=}0.01$,
+never annealed; Adam on embeddings and head at $3 \times 10^{-4}$ cosine-decayed,
+$\mathrm{wd}{=}0.1$). The two arms therefore differ in learning rate, decay schedule and weight decay on
+$85$M of $124$M parameters, and the hybrid's hidden weights are still at full
+learning rate at the last step. We did not run the ablation that would isolate the contribution of any one of these differences. We therefore do not attribute the ${\approx}0.24$-nat difference from the Muon baseline ($3.985$) to a specific cause; the comparison is confounded by the recipe and carries no information about which optimizer is better here. Absolute losses are \textbf{not}
+comparable across the two recipes, and we read only the within-optimizer ordering. Corpus, tokenizer, token budget, batch shape and validation split are
+identical (both stream \texttt{HuggingFaceFW/fineweb-edu}, \texttt{sample-10BT}, with
+the final $20$M tokens held out and \texttt{final\_val} averaged over $50$ batches). All runs in this appendix are 124M; the $350$M results
+of Section~\ref{sec:rare} are separate single-seed Muon-hybrid runs.
+
+\paragraph{Per-seed values behind the aggregate statistics.} For the norm-support
+measurement (Section~\ref{sec:mechanism}) the per-seed opposed-norm fractions are, for
+Muon, $0.6069$ (seed 42), $0.6281$ (123), $0.5772$ (456), and for AdamW $0.6914$ (42),
+$0.7035$ (123), $0.6806$ (456); the norm-profile cosines are $0.9783/0.9761/0.9820$
+and $0.9846/0.9713/0.9739$ respectively, and the aggregate cosines
+${-}0.1928/{-}0.1631/{-}0.1330$ and ${-}0.3186/{-}0.3355/{-}0.2964$. Restated on the active-row
+denominator (Section~\ref{sec:aligned}), the same seeds give opposed-norm fractions
+$0.6301/0.6028/0.5909$ (Muon) and $0.7088/0.7179/0.6988$ (AdamW), norm-profile cosines
+$0.9776/0.9734/0.9816$ and $0.9843/0.9710/0.9732$, and parallel-mass fractions $f$ of
+$3.89\%/11.52\%/2.34\%$ and $3.53\%/2.82\%/2.82\%$; the Muon seed-123 value of $f$ is the
+outlier discussed in Section~\ref{sec:aligned}. The per-row direction statistics of
+Table~\ref{tab:perrow} are, on the same seed order, active fractions of
+$7.82\%/8.18\%/8.36\%$ (Muon) and $7.70\%/8.02\%/8.21\%$ (AdamW), active-row median
+cosines $0.5363/0.5302/0.5207$ and $0.5637/0.5434/0.5325$, and active rows opposed
+by count $3.51\%/3.91\%/3.69\%$ and $2.94\%/3.38\%/3.20\%$. The Welch comparison of the
+opposed-norm fraction between optimizers ($t = 5.42$, $\mathrm{df} = 2.77$,
+two-tailed $p = 0.015$) is computed from the full-vocabulary values above; the same
+comparison on the active-row values gives $t = 7.82$.
+

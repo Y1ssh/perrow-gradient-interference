@@ -12,7 +12,8 @@ dominant rows, not by disjoint support. Run:
 
     python figures/make_schematic.py --out figures
 
-Produces fig0_schematic.{png,pdf}. The PDF is what paper/main.tex includes.
+Produces fig0_schematic.{png,pdf}. The PDF is what the venue main.tex files include
+(via paper/sections/intro.tex).
 """
 import argparse
 import numpy as np

@@ -79,4 +79,5 @@ direction.
 - 350M r4 (n=1): A=3.7516, B=4.1291, Δ+0.378
 - Per-row (A1 step 1000, 50,304 rows): median +1.000, cos<0 0.33%, |cos|>0.3 98.38%
 - Control (A3): per_row_0.3 0.42%
-- Committed result files: 66 JSONs
+- Committed result files: 76 JSONs (norm_support 6, phase_a 5, phase_b 19,
+  phase_b_50M_repeated 9, phase_c 10, phase_c_350m* 3, phase_d 20, phase_e 4)

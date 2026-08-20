@@ -32,3 +32,26 @@
 
 ## 350M (single seed — no test)
 - A=3.7516, B=4.1291, Δ=+0.3775 (n=1)
+
+## Inline prose statistics (Sections 4.1 / 4.5)
+
+Section 4.1 restatement, sample sd (ddof=1):
+
+| optimizer | opposed-norm (full) | opposed-norm (active) | norm-profile (full) | norm-profile (active) | parallel mass f |
+|---|---|---|---|---|---|
+| adamw | 0.6918 ± 0.0115 | 0.7085 ± 0.0095 | 0.9766 | 0.9762 | 2.82–3.53% |
+| muon | 0.6041 ± 0.0256 | 0.6079 ± 0.0201 | 0.9788 | 0.9775 | 2.34–11.52% |
+- adamw seed 42: shift +0.0174, f = 3.53%, identity residual -0.0079, opposed-mass-inside-parallel 0.765%
+- adamw seed 123: shift +0.0144, f = 2.82%, identity residual -0.0060, opposed-mass-inside-parallel 0.583%
+- adamw seed 456: shift +0.0183, f = 2.82%, identity residual -0.0015, opposed-mass-inside-parallel 0.142%
+- muon seed 42: shift +0.0232, f = 3.89%, identity residual -0.0014, opposed-mass-inside-parallel 0.131%
+- muon seed 123: shift -0.0253, f = 11.52%, identity residual -0.1070, opposed-mass-inside-parallel 9.472%
+- muon seed 456: shift +0.0136, f = 2.34%, identity residual -0.0002, opposed-mass-inside-parallel 0.015%
+
+- parallel-mass fraction f: 3.08% mean over the 5 conforming runs, 4.49% over all 6
+- Welch t on opposed-norm fraction: 5.42 (full vocabulary), 7.82 (active rows)
+
+Section 4.5 shape deviation from exact linearity:
+
+- s=0.25: normalized [0.2433, 0.2674] vs linear 0.25; max deviation 0.0065 nats = 0.25σ (band width, NOT what 4.5 quotes: 0.0090 nats = 0.35σ)
+- s=0.5: normalized [0.5105, 0.5382] vs linear 0.5; max deviation 0.0142 nats = 0.56σ (band width, NOT what 4.5 quotes: 0.0103 nats = 0.40σ)

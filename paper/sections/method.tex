@@ -1,10 +1,10 @@
 \section{Method}
 \label{sec:method}
 
-\subsection{Setup}
-We train GPT-2 (124M; 12 layers, $d{=}768$, vocab $50{,}257$ padded to $50{,}304$)
-and a 350M variant (24 layers, $d{=}1024$) on FineWeb, tokenized with the GPT-2
-BPE. The output projection (\texttt{lm\_head}) is \emph{tied} to the input
+\subsection{Models, data, and training recipe}
+We train GPT-2 \citep{radford2019gpt2} (124M; 12 layers, $d{=}768$, vocab
+$50{,}257$ padded to $50{,}304$) and a 350M-class variant ($355$M parameters; 24 layers, $d{=}1024$) on
+FineWeb-Edu \citep{penedo2024fineweb}, tokenized with the GPT-2 BPE. The output projection (\texttt{lm\_head}) is \emph{tied} to the input
 embedding by default; Section~\ref{sec:general} reports an untied control. The
 primary objective is next-token cross-entropy (CE). The auxiliary multi-token
 objective (MTP) supervises the \emph{same tied head} to also predict tokens at
@@ -12,22 +12,146 @@ offsets $t{+}2$ and $t{+}3$, with total loss
 $\mathrm{CE} + 0.5\,\mathrm{MTP}_2 + 0.25\,\mathrm{MTP}_3$. Evaluation is
 \textbf{pure next-token CE on held-out validation} for every variant, so all
 reported losses are directly comparable. The loss-comparison runs use a batch of
-$16{,}384$ tokens/step for $30{,}517$ steps ($\approx 500$M tokens,
-$\approx 4.0$ tokens/parameter at 124M), an intentionally undertrained,
+$16{,}384$ tokens/step for $30{,}517$ steps ($499{,}990{,}528$ tokens processed,
+$\approx 4.0$ tokens/parameter at 124M). The training slice is $480$M unique tokens,
+so this is $1.04$ epochs; the tokens-per-parameter figure counts tokens processed
+($3.86$ if counted over unique tokens instead). This is an intentionally undertrained,
 small-batch regime, chosen for controlled comparison and because it is where
-shared-head multi-token training is already documented to underperform; we return
-to this scope in Section~\ref{sec:discussion}.
+shared-head multi-token training is already documented to underperform; we return to this scope in Section~\ref{sec:limitations}.
 
-\subsection{The per-row instrument}
+Unless stated otherwise every run uses the same optimizer recipe: a Muon/Adam hybrid
+\citep{jordan2024muon}
+that places the 2D hidden weights inside transformer blocks (Q, K, V, attention-out,
+and both MLP matrices; $84.9$M of $124.4$M parameters) under Muon at a flat
+$\mathrm{lr}{=}0.02$, momentum $0.95$, weight decay $0.01$, and all remaining
+parameters (token and position embeddings, and the tied head) under Adam at
+$\mathrm{lr}{=}3\times 10^{-4}$, $\beta{=}(0.9,0.95)$, weight decay $0.1$. Only the
+Adam group follows a schedule: $200$-step linear warmup then cosine decay to $10\%$
+of base; the Muon group is held flat for the whole run. Training uses bfloat16
+autocast. The token pool is the first $500$M tokens of the streamed
+\texttt{sample-10BT} split, of which the final $20$M are held out for validation;
+periodic evaluation averages $20$ batches and the reported \texttt{final\_val}
+averages $50$, all at batch $16 \times 1024$. Appendix~\ref{app:surgery} reports one
+plain-AdamW replication arm ($n{=}2$ seeds across three conditions) that deliberately
+departs from this recipe, and its absolute losses are not comparable with the rest.
+
+\paragraph{Auxiliary specifications.} $G_{\text{nce}}$ is an InfoNCE objective on
+intermediate hidden states: $t{+}2$ reads block~9 and $t{+}3$ reads block~8 (each
+through its own LayerNorm), targets are \emph{detached} token embeddings, $K{=}16$
+in-batch negatives drawn by rolling the batch, temperature $\tau{=}0.1$, horizon
+weights $0.5$ and $0.25$ matching shared MTP, and a single auxiliary weight
+$\alpha$ calibrated once at the first step to $\min(m\cdot\mathrm{CE}/\mathrm{NCE},
+10)$ and floored at $0.01$, with multiplier $m{=}0.3$. No term touches the output
+head.
+
+The \emph{tuned} variant comes from a separate ablation driver, and two settings
+differ from the standard condition, not one: it reads blocks~10 and~9 rather than~9
+and~8, \emph{and} it uses $m{=}0.1$ rather than $0.3$. Neither term is resolvable at
+these seed counts, and we decline to attribute the difference to either. Two comparisons bound each term.
+Within the ablation family, matched seeds exist at both layer pairs under
+$m{=}0.1$. Switching $(9,8)\to(10,9)$ there moves the loss by ${-}0.004$: paired
+$t{=}{-}0.40$, $p{=}0.73$, $n{=}3$, with a $95\%$ CI of $[{-}0.048, {+}0.040]$.
+Across families, lowering the multiplier at fixed layers~$(9,8)$ shifts it by
+$0.017$, from $4.0241$ at $n{=}5$ down to $4.0067$ at $n{=}3$: Welch $t{=}1.43$,
+$p{=}0.21$, with a $95\%$ CI of $[{-}0.013, {+}0.048]$.
+Both intervals contain zero. Both are also wider than the
+$0.021$ tuned-versus-standard difference they are meant to decompose. That
+difference is therefore itself within run-to-run noise, consistent with the
+$p \approx 0.19$ reported against the CE-only baseline in
+Section~\ref{sec:interventions}. The two
+conditions also come from different run families with different seed counts, so the
+contrast is not a clean single-factor comparison in the first place. The
+configuration was selected by a $14$-run one-factor-at-a-time screen at $5{,}000$
+steps over $m \in \{0.1,0.3,1,3\}$, layer pairs $\{(10,9),(9,8),(8,7)\}$, $\tau \in
+\{0.05,0.1,0.2,0.5\}$, $K \in \{1,4,16\}$, roll-versus-random negatives, and horizon
+weights $\{(0.5,0.25),(0.25,0.125),(1,0.5)\}$, then rerun to $30{,}517$ steps at
+$n{=}3$. The screen scored on the same held-out split used for the reported losses, so
+the tuned condition's $4.003$ is optimistically biased and its $\Delta{+}0.018$
+inherits that bias; we treat that comparison as an upper bound on how close a tuned
+auxiliary comes, not as evidence of recovery. NextLat is due to \citet{teoh2025nextlat}, who introduce
+next-latent prediction as a self-supervised auxiliary in latent space and
+report that it leaves the architecture, training efficiency and inference of
+the base transformer unchanged. Our arm is a reimplementation at this study's
+124M scale, written to test a head-free auxiliary rather than to reproduce
+theirs; we have not verified which implementation details agree, so no
+quantitative comparison to their results is drawn here. The specification we
+ran is the one given next.
+NextLat predicts the
+\emph{next-position latent}: a bias-free linear map on the LayerNorm'd block-11 output
+at position $t$ against the detached block-11 output at $t{+}1$, with loss
+$1-\cos$ and the same $\alpha$ calibration. MTP stop-gradient keeps the $0.5$ and
+$0.25$ weights and differs from shared MTP only in forming the auxiliary logits as
+$\mathrm{sg}(W)h$.
+
+\paragraph{Per-condition losses.} Table~\ref{tab:conditions} gives the mean, sample
+standard deviation and $n$ for every 124M condition, so the Welch comparisons in
+Section~\ref{sec:interventions} can be reproduced from the table alone.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+condition & $n$ & mean & sd \\
+\midrule
+CE-only (A)                 & 5 & $3.9851$ & $0.0138$ \\
+$G_{\text{nce}}$            & 5 & $4.0241$ & $0.0207$ \\
+$G_{\text{nce}}$ tuned$^{\dagger}$ & 3 & $4.0026$ & $0.0156$ \\
+NextLat                     & 3 & $4.0365$ & $0.0179$ \\
+shared MTP (B)              & 3 & $4.3767$ & $0.0209$ \\
+MTP stop-gradient           & 3 & $4.4927$ & $0.0101$ \\
+\bottomrule
+\end{tabular}
+\caption{No auxiliary demonstrably recovers the CE-only baseline. Final validation loss by condition at 124M, Muon hybrid recipe, $30{,}517$ steps. Standard deviations are across-seed sample statistics ($\mathrm{ddof}{=}1$),
+never standard errors. Deltas quoted in the text are computed from unrounded values,
+so they can differ from differences of these rounded means by $\pm0.001$.
+$^{\dagger}$From the ablation driver, at $G_{\text{nce}}$ layers~$(10,9)$ and
+multiplier $m{=}0.1$; the other rows are from the phase-B driver, where the one
+condition that has these hyperparameters at all ($G_{\text{nce}}$) uses layers~$(9,8)$
+and $m{=}0.3$. As the preceding paragraph notes, neither of those two differences is
+resolvable at these seed counts.}
+\label{tab:conditions}
+\end{table}
+
+Run labels used below follow the scripts in the released repository: A denotes the
+CE-only condition and B the shared-MTP condition (so ``B@42'' is shared MTP at seed
+42), A1--A4 are the phase-A diagnostic measurements (A1 Muon, A2 AdamW, A3 the
+control, A4 the untied-head control), and phase-C denotes the negative-control and
+surgery runs of Appendix~\ref{app:surgery}.
+
+\paragraph{Three uses of ``AdamW''.} The name appears in three distinct roles and
+we keep them separate throughout. (i) Inside the Muon hybrid, an Adam group with
+weight decay carries the embeddings, positional table and output head. (ii) The
+AdamW \emph{diagnostic} runs (A2 and the three AdamW norm-support seeds) place every
+parameter under a single \texttt{torch.optim.AdamW} with $\mathrm{lr}{=}10^{-3}$,
+$\beta{=}(0.9,0.95)$, $\epsilon{=}10^{-8}$, weight decay $0.01$ on the decayed group
+and $0$ on norms and biases, tied weights deduplicated, and all groups scheduled;
+these produce the ${-}0.28$ aggregate. (iii) The plain-AdamW phase-C training recipe
+of Appendix~\ref{app:surgery} uses $\mathrm{lr}{=}3\times10^{-4}$ and no weight decay;
+its absolute losses are not comparable with the rest, so the ${-}0.28$ diagnostic
+aggregate should not be mapped onto that replication.
+
+Seed counts differ by condition and are fixed by what was run: CE-only and
+$G_{\text{nce}}$ use $n{=}5$ (seeds $42,123,456,789,1337$); shared MTP, MTP
+stop-gradient, NextLat and tuned $G_{\text{nce}}$ use $n{=}3$ (seeds $42,123,456$).
+Paired comparisons therefore use the three seeds common to both arms; Welch
+comparisons use all available runs per condition.
+
+\subsection{Measuring per-row gradients at the output projection}
+\label{sec:instrument}
 The output projection has shape $(V, d)$; row $i$ is the weight vector for
 vocabulary token $i$. For a validation batch we compute the gradient each loss
 deposits on this matrix and, for \textbf{each row}, the cosine between the CE and
 MTP row-gradients. We summarize the resulting distribution of $V$ per-row cosines
-by its median, the fraction with $\cos < 0$ (directional opposition), and the
-fraction with $|\cos| > 0.3$ (appreciable alignment; the $0.3$ threshold is a
-conventional ``appreciable correlation'' cut, and the qualitative picture is
-insensitive to it since the active-row cosines cluster around $0.5$, well above
-$0.3$, while the parallel majority sits at $+1$). Each gradient measurement uses a
+by three statistics: its median, the fraction with $\cos < 0$ (directional
+opposition), and the fraction with $|\cos| > 0.3$ (appreciable
+\emph{association} rather than alignment). The absolute value counts an
+anti-aligned row alongside an aligned one. We therefore use the signed
+$\cos > 0.3$ and $\cos < 0$ wherever the direction of the relationship is what
+matters, and reserve $|\cos|$ for distance-from-zero statements. The $0.3$
+threshold is a conventional ``appreciable correlation'' cut. The qualitative
+picture is insensitive to it, since the active-row cosines cluster around $0.5$,
+well above $0.3$, while the parallel majority sits at $+1$. Each gradient measurement uses a
 single held-out batch of $16$ sequences $\times$ $1024$ tokens ($16{,}384$ tokens);
 Section~\ref{sec:aligned} reports how the active-row fraction varies with batch
 count. We contrast these per-row
@@ -39,7 +163,13 @@ per-row statistics.
 \paragraph{Measurement windows (stated explicitly).} The gradient
 instrumentation and the loss comparison come from \emph{different} runs, and we
 are careful to keep them distinct. At 124M, the per-row/aggregate trajectory is a
-dedicated diagnostic run logged densely over its first $1000$ steps (A1); the
+dedicated diagnostic run logged densely over its first $1000$ steps (A1). The
+diagnostic runs A1, A2 and A4 are themselves trained on the shared-MTP objective
+(\texttt{loss\_mode}${=}$\texttt{mtp\_shared}), so the per-row cosines are measured
+inside a model that is being trained with the auxiliary, not on a CE-only model with
+the MTP gradient merely evaluated; the one exception is the CE-only-trained
+comparator at 350M in Section~\ref{sec:rare}, and a matching CE-only 124M diagnostic
+is the cheapest of our future items. The
 $+0.39$-nat loss gap is the separate $30{,}517$-step training comparison
 (Section~\ref{sec:interventions}). Late-training persistence of the alignment is
 therefore \emph{not} established at 124M; it is measured directly only at 350M
@@ -47,7 +177,120 @@ therefore \emph{not} established at 124M; it is measured directly only at 350M
 (Section~\ref{sec:rare}). We flag throughout which quantity comes from which run,
 and treat single-seed/single-run measurements as such.
 
-\subsection{Direction versus support}
+\paragraph{Sensitivity to the ratio tolerance.} The active-row classification uses
+$\lvert \lVert g^{\text{mtp}}_i\rVert / \lVert g^{\text{ce}}_i\rVert - 0.75\rvert > 0.01$.
+Over the three Muon seeds, widening or tightening that tolerance moves the active
+fraction and the active-row median only slowly: at tolerance $0.005$, $0.01$ and
+$0.02$ the active fraction is $8.5\%$, $8.1\%$ and $7.6\%$ and the median cosine
+$0.536$, $0.529$ and $0.525$. Only the far tighter $0.001$ behaves differently
+($14.2\%$ active, median $0.785$), because at that level the
+classifier admits rows whose norm ratio deviates only slightly from $0.75$. We cannot
+tell from this measurement whether those deviations are float noise or the
+embedding-path contribution discussed below; the instrument does not separate them. The reported conclusions do not
+turn on the exact tolerance.
+
+\paragraph{Which gradient the instrument reads.} The measurement calls
+\texttt{torch.autograd.grad} on \texttt{lm\_head.weight}, which in this model
+\emph{is} the token-embedding tensor (\texttt{model/gpt2.py} ties them). The returned
+gradient therefore sums two paths: the output-projection path
+$\sum_t \delta_i(t) h_t$, and the embedding path, which deposits on row $i$ at every
+position where token $i$ is an \emph{input}. The $0.75$ identity of
+Section~\ref{sec:aligned} is derived for the projection path alone.
+
+The two paths land on almost exactly the same rows, and that fact cuts both ways.
+Next-token cross-entropy scores position $t{+}1$ from input $t$, so a token that is
+an input anywhere in the batch is a target one position earlier, with one exception
+per sequence (the first token). Input rows are therefore a subset of target rows up
+to that exception. The reassuring consequence is that our active/parallel partition
+does not meaningfully conflate the two populations: the input set adds essentially
+nothing to the target set, and we do not claim otherwise. The unwelcome consequence
+is that the embedding path deposits \emph{only} on rows that are already active,
+which is precisely where every statistic in this paper lives. Its contribution to
+the active-row cosines is not bounded by anything we measure, and a check on the
+parallel rows could not bound it even in principle, because those rows receive no
+embedding-path gradient at all. We state this as an open limitation rather than a
+quantity we have controlled. The cheapest way to close it is to recompute the
+projection path alone, or to commit per-row norms from an untied run, where the head
+tensor receives the projection path only; we list both in
+Section~\ref{sec:limitations}.
+
+\paragraph{Gradients, not updates.} Both our instrument and the conflict-surgery
+literature operate on raw loss gradients, obtained here by
+\texttt{torch.autograd.grad} before any optimizer transform. The optimizers do not
+apply those vectors directly: Muon orthogonalizes the update for 2D hidden weights
+and Adam preconditions elementwise. Note that in both recipes the head itself sits
+under Adam(W): the hybrid assigns only the hidden 2D weights to Muon. The
+optimizer-dependence we report therefore enters through the trunk-shaped hidden states
+and the differing training trajectories, not through the head's own preconditioner.
+That said, our magnitudes are consistent with the gradient-versus-update gap mattering, and a diagnostic defined on post-transform updates could
+report differently; we measure gradients because that is what the surgery methods act
+on.
+
+\paragraph{Terms used throughout.} Table~\ref{tab:notation} collects the
+paper-specific quantities. Each is defined where it is first used; the table is a
+reference, not a substitute for those definitions.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{p{0.27\textwidth}p{0.66\textwidth}}
+\toprule
+term & meaning \\
+\midrule
+active row &
+A vocabulary row classified as receiving a target in the measurement batch, by
+the norm-ratio proxy $\lvert\lVert g^{\text{mtp}}_i\rVert/\lVert
+g^{\text{ce}}_i\rVert - 0.75\rvert > 0.01$. A row that receives a target moves
+the ratio away from $0.75$; the converse does not hold exactly
+(Section~\ref{sec:aligned}). \\[2pt]
+parallel row &
+A row failing that test. Absent a target, the two gradients are scalar multiples
+with per-row cosine $+1$ by construction, which is why they must be separated
+before any per-row statistic is read. \\[2pt]
+$f$, parallel-mass fraction &
+The share of total gradient-magnitude mass carried by parallel rows. Small
+($\approx 3\%$), which is why the full-vocabulary and active-row denominators
+give nearly the same mass-weighted answers. \\[2pt]
+full-vocabulary vs.\ active-row denominator &
+Whether a statistic averages over all $V$ rows or only active ones. Count-based
+statistics (median cosine, opposed fraction) change materially between the two;
+mass-weighted ones barely move. Every reported statistic names its denominator. \\[2pt]
+aggregate cosine &
+The cosine between the two losses' summed, flattened gradients over the whole
+matrix: the quantity a standard conflict diagnostic reports. Magnitude-weighted
+(Section~\ref{sec:dirsupport}). \\[2pt]
+mass-weighted cosine, $\langle\cos\rangle_{\text{mass}}$ &
+The per-row cosines averaged with weights $w_i \propto \lVert
+g^{\text{ce}}_i\rVert\,\lVert g^{\text{mtp}}_i\rVert$. One of the two exact
+factors of the aggregate in Eq.~(\ref{eq:decomp}). \\[2pt]
+norm-profile cosine, $\rho_{\text{norm}}$ &
+The cosine between the two losses' vectors of per-row gradient \emph{norms}. Near
+$1$ means both losses place their magnitude on the same rows; near $0$ would mean
+disjoint support. The other exact factor of the aggregate. \\[2pt]
+opposed-norm fraction &
+The share of gradient-magnitude mass carried by rows with negative per-row
+cosine. Distinguishes ``few opposed rows'' from ``opposed rows that matter.'' \\[2pt]
+anchor gate &
+The check, fixed in advance, that the sweep's $s{=}0$ and $s{=}1$ endpoints reproduce
+the CE-only and shared-MTP conditions within $\pm 0.04$ nats
+(Section~\ref{sec:methodkl}). \\[2pt]
+coverage &
+The probability mass retained by top-$k$ truncation when estimating the KL. Lower
+coverage biases the estimate upward, which we handle by extrapolating linearly in
+the uncovered mass. \\[2pt]
+band &
+The span of the KL prediction over $\{\text{offset-3 treatment}\} \times
+\{\text{validation half}\}$ at the largest $k$, reported instead of a point
+estimate because the two offset-3 treatments bias in opposite directions. \\
+\bottomrule
+\end{tabular}
+\caption{Paper-specific terms. Entries carry a section reference where the term
+is defined outside this table; the rest are defined here. The active-row rule and
+the two exact factors of the aggregate carry most of the argument's weight.}
+\label{tab:notation}
+\end{table}
+
+\subsection{Separating directional conflict from disjoint support}
 \label{sec:dirsupport}
 The distinction the paper turns on: the \textbf{aggregate} cosine measures whether
 the summed gradient vectors point the same way; the \textbf{per-row} distribution
@@ -59,10 +302,11 @@ median of $+1$ is therefore consistent with (a) \emph{support divergence}, where
 the two losses place their magnitude on disjoint rows, so the aggregate drifts
 toward orthogonality without any directional opposition; or with (b) a small
 number of \emph{high-norm opposed rows} that dominate the weighted sum while the
-many low-norm rows align. The $0.33\%$ opposed-by-count figure does not bound the
+many low-norm rows align. The $0.33\%$ opposed-by-count figure (measured in
+Section~\ref{sec:aligned}) does not bound the
 opposed \emph{mass}, so counting rows cannot distinguish the two. Separating them
 requires the per-row gradient \emph{norms}; we measure them directly
-(Section~\ref{sec:emergent}, Figure~\ref{fig:normsupport}) and find (b).
+(Section~\ref{sec:mechanism}, Figure~\ref{fig:normsupport}) and find (b).
 
 \begin{tcolorbox}[colback=gray!5,colframe=gray!45,boxrule=0.4pt,left=4pt,right=4pt,
   top=3pt,bottom=3pt,fontupper=\small]
@@ -78,8 +322,49 @@ occupy the \emph{same} rows, but one high-norm row is opposed and it sets the
 sign. This is mechanism (b), and it is what we measure at scale.
 \end{tcolorbox}
 
-\subsection{Calibration}
+\subsection{Calibrating the instrument against an unrelated-loss control}
+\label{sec:calib}
 To confirm the instrument is not trivially reporting alignment, we run a control
 (A3) that measures CE against an unrelated L1 regularizer on the same head. A
 well-calibrated instrument should read near-zero alignment for two unrelated
 losses.
+
+In $x \pm y$, $x$ is the mean over seeds and $y$ is the sample standard deviation
+across them ($\mathrm{ddof}{=}1$), throughout, including in the statistical tests.
+Spreads are never standard errors.
+
+\subsection{Auxiliary-weight sweep and the KL estimator}
+\label{sec:methodkl}
+Two measurements in Section~\ref{sec:mixturetest} need their protocol fixed in
+advance. First, the \textbf{weight sweep}: we retrain from scratch at auxiliary
+scales $s \in \{0, 0.25, 0.5, 1.0\}$ with loss
+$\mathrm{CE} + s\,(\tfrac{1}{2}\mathrm{MTP}_2 + \tfrac{1}{4}\mathrm{MTP}_3)$, seed
+$42$, every other hyperparameter held at the values above, so that $s{=}0$ and
+$s{=}1$ reproduce the CE-only and shared-MTP conditions and act as anchors. We
+fixed the anchor tolerance in advance at $\pm0.04$ nats (roughly $2$ shared-MTP
+within-condition standard deviations) before running the sweep. The comparator is
+the matched seed-42 run at each end, not the condition mean, since the sweep is a
+single seed. Both endpoints pass on that reading, the $s{=}1$ end by the narrower
+margin: $0.034$ against the $0.04$ allowance, or $84\%$ of it.
+
+Second, the \textbf{KL estimator}. The soft-label identity of
+Section~\ref{sec:softlabel} predicts a next-token penalty
+$\mathrm{KL}(P_1 \Vert q^{*}_s)$ that depends only on the data distribution, so we
+estimate it from the $s{=}0$ checkpoint alone and compare it to the sweep without
+fitting anything. $\hat{P}_1$ is the model's own next-token distribution;
+$\hat{P}_2$ is obtained by rolling the model forward one step over its top-$k$
+next-token candidates and marginalizing, renormalized over the retained mass, with
+$k \in \{256, 1024, 2048\}$. Truncation biases the estimate upward relative to full
+marginalization, which we handle by reporting the coverage attained and extrapolating
+linearly in the uncovered mass. Offset $3$ cannot be reached this way at acceptable cost, so we
+\emph{bracket} it: one variant drops the $t{+}3$ term (under-weighting future mass,
+biasing the prediction down) and one sets $P_3 \approx P_2$ (substituting a
+too-peaked component, biasing it up). We split the held-out set in half to expose estimator
+variance, and report as our band the span over
+$\{\text{offset-3 treatment}\} \times \{\text{validation half}\}$ at the largest $k$,
+rather than a point estimate. Smaller $k$ gives systematically higher estimates
+(truncation is an upward bias), so pooling across $k$ would widen the band with
+values we already know to be biased; we quote the smaller-$k$ estimates separately
+where the coverage trend matters. The one remaining known bias, proxy smoothing from an
+undertrained model, is downward and we do not have a way to quantify it; we say so
+where it matters rather than correcting for it.

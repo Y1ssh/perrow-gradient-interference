@@ -48,7 +48,8 @@ fi
 cd perrow-gradient-interference
 
 # 6. Create results directories
-mkdir -p results/phase_a results/phase_b results/phase_c results/phase_d
+mkdir -p results/phase_a results/phase_b results/phase_c results/phase_d \
+         results/phase_e results/norm_support results/checkpoints
 
 # 7. Git identity: set your own before committing, e.g.
 #    git config user.email "you@example.com"

@@ -209,8 +209,10 @@ and the dropped `discrepancy`/"PRDR" metric still living in the instrument and g
 | 350M-B per_row_0.3 | 98.88% | 0.9888 | ✓ |
 | phase_b_50M A/B (robustness) | A≈3.94/B=4.31 | A=3.9264(n=5)/B=4.3050(n=1) | ✓ |
 
-Committed result files: **66 JSONs** (phase_a=5, phase_b=19, phase_b_50M_repeated=9,
-phase_c=10, three 350M dirs=1 each, phase_d=20).
+Committed result files at the time of this audit: **66 JSONs** (phase_a=5,
+phase_b=19, phase_b_50M_repeated=9, phase_c=10, three 350M dirs=1 each,
+phase_d=20). The tree now holds **76**; norm_support (6) and phase_e (4) were
+added by later work.
 
 ---
 

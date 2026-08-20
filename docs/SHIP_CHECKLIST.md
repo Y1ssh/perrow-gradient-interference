@@ -2,7 +2,7 @@
 
 **Status: ONE COMPUTE ITEM OPEN** — second pre-submission review addressed in full except the
 mixture-optimum test (R2), which needs 4 GPU runs (~3.5 h). Mechanism itself is confirmed and survived
-the review's hardest challenge (active-row denominator). Paper compiles clean at 15 pp.
+the review's hardest challenge (active-row denominator). Both venue builds compile clean at 28 pp.
 Last updated 2026-07-23 (second review response).
 
 ## The result (locked, n=3 per optimizer)
@@ -27,7 +27,7 @@ AdamW cancels harder than Muon: optimizer-dependent magnitude, identical mechani
 - [x] Title kept ("Aligned but Apart... Misread..."); "Apart" = the aggregate's misread, never glossed as support.
 - [x] Downstream docs reconciled: README, vault draft.md + 01-abstract-intro.md, claim_ledger A5, CODE_FIXES,
       EXTERNAL_REVIEW_TRIAGE (B1/B2/B3 marked done).
-- [x] Fresh repo compile: 15 pages, 0 undefined refs, all 8 figures present + referenced.
+- [x] Fresh repo compile, both venues: 28 pages, 0 undefined refs, all 10 figures present + referenced.
 - [x] Paper (.tex): 0 em-dashes.
 - [x] Numbers consistent across paper + README + claim_ledger + RESULT_B2.
 
@@ -48,10 +48,14 @@ AdamW cancels harder than Muon: optimizer-dependent magnitude, identical mechani
 - [ ] Optional: run `bash clean_repo.sh --apply` to sweep 371 Zone.Identifier files (gitignored; will NOT
       ship even if left, but cosmetic). (Agent's Trash-tool cleanup was declined; this is the local sweep.)
 - [ ] `git add -A && git commit && git push` from your clone (set git identity first).
-- [ ] Sanity: open paper/main.pdf, eyeball Fig 1 (schematic) + Fig 7 (evidence).
+- [ ] Sanity: open paper/venues/zenodo/main.pdf, eyeball Fig 1 (schematic) + Fig 7 (evidence).
 
 ## CAMERA-READY (after acceptance)
-- [ ] `\usepackage[accepted]{tmlr}` + real author block (currently anonymous placeholder).
+- [ ] TMLR only: `\usepackage[accepted]{tmlr}` + real author block in `paper/venues/tmlr/main.tex`
+      (that build is deliberately anonymous; the Zenodo build already carries the real block).
+- [ ] TMLR only: replace `\repourl`'s `[[ TODO BEFORE SUBMISSION: anonymized repository URL ]]`
+      with an anonymous mirror. Correct as a placeholder for double-blind review; must not
+      reach a camera-ready.
 - [ ] Swap arXiv preprint bib entries for published-venue versions where available.
 
 ## OPTIONAL POLISH (not blockers)
