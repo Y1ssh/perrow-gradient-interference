@@ -1,0 +1,36 @@
+{
+  "title": "Aligned but Apart: Why Cosine Conflict Diagnostics Misread Auxiliary-Loss Interference at the Output Projection",
+  "description": "Cosine similarity between task gradients is the standard instrument for detecting conflict in multi-task and auxiliary-loss training. At a language model's shared, tied output projection it is misleading. Measuring the per-row gradients that a next-token (CE) and an auxiliary multi-token (MTP) loss deposit there, we find them aligned in direction: on the ~8% of vocabulary rows receiving a target the median per-row cosine is ~0.53 and only ~3-4% are opposed, yet the aggregate cosine over the flattened matrix ranges from near 0 (Muon) to clearly negative (-0.28, AdamW). Per-row gradient norms show both losses loading their magnitude on the same rows (norm-profile cosine 0.98), while 60-69% of that mass sits on a tiny opposed minority (~0.3% of rows, the most frequent function words and punctuation): a norm-weighted cancellation, not disjoint support. An exact rewrite shows the shared-head objective is cross-entropy toward a next-and-future-token mixture, and a zero-parameter estimate of the implied KL cost reproduces 62-91% of the matched within-sweep gap, making the shifted optimum rather than gradient conflict the leading account of the +0.39-nat degradation measured at 124M. Preprint; not peer reviewed. This archive contains the manuscript source, the committed result JSONs every reported number is computed from, the analysis and figure-regeneration scripts, and the claim-verification gate.",
+  "upload_type": "publication",
+  "publication_type": "preprint",
+  "publication_date": "2026-08-20",
+  "creators": [
+    {
+      "name": "Madelwar, Yash",
+      "affiliation": "Independent Researcher",
+      "orcid": "0009-0003-1009-0716"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "language": "eng",
+  "version": "1.0.0",
+  "keywords": [
+    "gradient conflict",
+    "multi-task learning",
+    "auxiliary losses",
+    "multi-token prediction",
+    "cosine similarity",
+    "language models",
+    "gradient surgery",
+    "output projection"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/Y1ssh/perrow-gradient-interference",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "notes": "Preprint; not peer reviewed. Archive contains manuscript source (paper/), the committed result JSONs every reported number is computed from (results/), analysis and figure-regeneration scripts, and tests/check_paper_claims.py, a claim gate that recomputes the manuscript's numbers from those JSONs and fails on drift."
+}
