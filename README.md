@@ -9,7 +9,7 @@ auxiliary multi-token-prediction (MTP) loss interact at a language model's share
 📄 **Paper:** [`paper/main.pdf`](paper/main.pdf) — preprint, version 1, 20 August 2026, 32 pp.
 *Not peer reviewed.*
 
-<!-- DOI BADGE GOES HERE AFTER ZENODO UPLOAD -->
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22032373.svg)](https://doi.org/10.5281/zenodo.22032373)
 
 ---
 
